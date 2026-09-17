@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: '只跑指定仓库（空格分隔；留空 = 全部 46 仓）'
+        description: '只跑指定仓库（空格分隔；留空 = 全部 46 仓；冒烟时填 msmodelslim）'
         required: false
-        default: 'msmodelslim'
+        default: ''
       slot:
         description: '槽位（ISO8601，如 2026-09-09T19:00:00+08:00；留空 = 最近一个到点槽位）'
         required: false
