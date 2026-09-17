@@ -26,7 +26,7 @@
   "repos": [
     {
       "name": "AgentSDK",
-      "url": "https://gitcode.com/Ascend/AgentSDK.git",
+      "url": "https://atomgit.com/Ascend/AgentSDK",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -91,7 +91,7 @@
     },
     {
       "name": "IndexSDK",
-      "url": "https://gitcode.com/Ascend/IndexSDK",
+      "url": "https://atomgit.com/Ascend/IndexSDK",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -102,7 +102,7 @@
     },
     {
       "name": "MegatronAdaptor",
-      "url": "https://gitcode.com/Ascend/MegatronAdaptor.git",
+      "url": "https://atomgit.com/Ascend/MegatronAdaptor",
       "branch": "core_r0.18.0",
       "paths_filter": [
         "docs/zh",
@@ -135,7 +135,7 @@
     },
     {
       "name": "MindSpeed",
-      "url": "https://gitcode.com/Ascend/MindSpeed",
+      "url": "https://atomgit.com/Ascend/MindSpeed",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -148,7 +148,7 @@
     },
     {
       "name": "MindSpeed-Bridge",
-      "url": "https://gitcode.com/Ascend/MindSpeed-Bridge.git",
+      "url": "https://atomgit.com/Ascend/MindSpeed-Bridge",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -161,7 +161,7 @@
     },
     {
       "name": "MindSpeed-LLM",
-      "url": "https://gitcode.com/Ascend/MindSpeed-LLM.git",
+      "url": "https://atomgit.com/Ascend/MindSpeed-LLM",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -176,7 +176,7 @@
     },
     {
       "name": "MindSpeed-MM",
-      "url": "https://gitcode.com/Ascend/MindSpeed-MM",
+      "url": "https://atomgit.com/Ascend/MindSpeed-MM",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -192,7 +192,7 @@
     },
     {
       "name": "MindSpeed-Ops",
-      "url": "https://gitcode.com/Ascend/MindSpeed-Ops.git",
+      "url": "https://atomgit.com/Ascend/MindSpeed-Ops",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -204,7 +204,7 @@
     },
     {
       "name": "msagent",
-      "url": "https://gitcode.com/Ascend/msagent",
+      "url": "https://atomgit.com/Ascend/msagent",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -215,7 +215,7 @@
     },
     {
       "name": "msdebug",
-      "url": "https://gitcode.com/Ascend/msdebug.git",
+      "url": "https://atomgit.com/Ascend/msdebug",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -226,7 +226,7 @@
     },
     {
       "name": "msinsight",
-      "url": "https://gitcode.com/Ascend/msinsight",
+      "url": "https://atomgit.com/Ascend/msinsight",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -241,7 +241,7 @@
     },
     {
       "name": "msit",
-      "url": "https://gitcode.com/Ascend/msit",
+      "url": "https://atomgit.com/Ascend/msit",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -253,7 +253,7 @@
     },
     {
       "name": "mskl",
-      "url": "https://gitcode.com/Ascend/mskl.git",
+      "url": "https://atomgit.com/Ascend/mskl",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -264,7 +264,7 @@
     },
     {
       "name": "mskpp",
-      "url": "https://gitcode.com/Ascend/mskpp",
+      "url": "https://atomgit.com/Ascend/mskpp",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -275,7 +275,7 @@
     },
     {
       "name": "msmemscope",
-      "url": "https://gitcode.com/Ascend/msmemscope",
+      "url": "https://atomgit.com/Ascend/msmemscope",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -286,7 +286,7 @@
     },
     {
       "name": "msmodeling",
-      "url": "https://gitcode.com/Ascend/msmodeling",
+      "url": "https://atomgit.com/Ascend/msmodeling",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -297,7 +297,7 @@
     },
     {
       "name": "msmodelslim",
-      "url": "https://gitcode.com/Ascend/msmodelslim/",
+      "url": "https://atomgit.com/Ascend/msmodelslim/",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -308,7 +308,7 @@
     },
     {
       "name": "msmonitor",
-      "url": "https://gitcode.com/Ascend/msmonitor.git",
+      "url": "https://atomgit.com/Ascend/msmonitor",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -319,7 +319,7 @@
     },
     {
       "name": "msopgen",
-      "url": "https://gitcode.com/Ascend/msopgen",
+      "url": "https://atomgit.com/Ascend/msopgen",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -330,7 +330,7 @@
     },
     {
       "name": "msopprof",
-      "url": "https://gitcode.com/Ascend/msopprof.git",
+      "url": "https://atomgit.com/Ascend/msopprof",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -341,7 +341,7 @@
     },
     {
       "name": "msot",
-      "url": "https://gitcode.com/Ascend/msot",
+      "url": "https://atomgit.com/Ascend/msot",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -352,7 +352,7 @@
     },
     {
       "name": "msprobe",
-      "url": "https://gitcode.com/Ascend/msprobe.git",
+      "url": "https://atomgit.com/Ascend/msprobe",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -363,7 +363,7 @@
     },
     {
       "name": "msprof",
-      "url": "https://gitcode.com/Ascend/msprof.git",
+      "url": "https://atomgit.com/Ascend/msprof",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -377,7 +377,7 @@
     },
     {
       "name": "msprof-analyze",
-      "url": "https://gitcode.com/Ascend/msprof-analyze.git",
+      "url": "https://atomgit.com/Ascend/msprof-analyze",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -390,7 +390,7 @@
     },
     {
       "name": "mspti",
-      "url": "https://gitcode.com/Ascend/mspti",
+      "url": "https://atomgit.com/Ascend/mspti",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -401,7 +401,7 @@
     },
     {
       "name": "mssanitizer",
-      "url": "http://gitcode.com/Ascend/mssanitizer",
+      "url": "http://atomgit.com/Ascend/mssanitizer",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -412,7 +412,7 @@
     },
     {
       "name": "msserviceprofiler",
-      "url": "https://gitcode.com/Ascend/msserviceprofiler.git",
+      "url": "https://atomgit.com/Ascend/msserviceprofiler",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -423,7 +423,7 @@
     },
     {
       "name": "mstt",
-      "url": "https://gitcode.com/Ascend/mstt",
+      "url": "https://atomgit.com/Ascend/mstt",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -438,7 +438,7 @@
     },
     {
       "name": "mstx",
-      "url": "https://gitcode.com/Ascend/mstx",
+      "url": "https://atomgit.com/Ascend/mstx",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -449,7 +449,7 @@
     },
     {
       "name": "MultimodalSDK",
-      "url": "https://gitcode.com/Ascend/MultimodalSDK",
+      "url": "https://atomgit.com/Ascend/MultimodalSDK",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -460,7 +460,7 @@
     },
     {
       "name": "op-plugin",
-      "url": "https://gitcode.com/Ascend/op-plugin",
+      "url": "https://atomgit.com/Ascend/op-plugin",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -487,7 +487,7 @@
     },
     {
       "name": "RAGSDK",
-      "url": "https://gitcode.com/Ascend/RAGSDK",
+      "url": "https://atomgit.com/Ascend/RAGSDK",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -498,7 +498,7 @@
     },
     {
       "name": "RecSDK",
-      "url": "https://gitcode.com/Ascend/RecSDK",
+      "url": "https://atomgit.com/Ascend/RecSDK",
       "branch": "develop",
       "paths_filter": [
         "docs/zh",
@@ -509,7 +509,7 @@
     },
     {
       "name": "release-management",
-      "url": "https://gitcode.com/Ascend/release-management.git",
+      "url": "https://atomgit.com/Ascend/release-management",
       "branch": "master",
       "paths_filter": [
         "MindStudio"
@@ -530,7 +530,7 @@
     },
     {
       "name": "torchair",
-      "url": "https://gitcode.com/Ascend/torchair",
+      "url": "https://atomgit.com/Ascend/torchair",
       "branch": "master",
       "paths_filter": [
         "docs/zh"
@@ -540,7 +540,7 @@
     },
     {
       "name": "TransformerEngineNPU",
-      "url": "https://gitcode.com/Ascend/TransformerEngineNPU.git",
+      "url": "https://atomgit.com/Ascend/TransformerEngineNPU",
       "branch": "main",
       "paths_filter": [
         "docs/zh",
@@ -551,7 +551,7 @@
     },
     {
       "name": "VisionSDK",
-      "url": "https://gitcode.com/Ascend/VisionSDK",
+      "url": "https://atomgit.com/Ascend/VisionSDK",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
