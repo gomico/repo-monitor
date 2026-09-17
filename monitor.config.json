@@ -6,7 +6,7 @@
     "window_mode": "slot",
     "missed_run_grace_minutes": 180,
     "catch_up_on_start": true,
-    "catch_up_max_slots": 1
+    "catch_up_max_slots": 3
   },
   "report": {
     "default_days": 7,

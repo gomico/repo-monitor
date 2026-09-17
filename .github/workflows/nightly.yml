@@ -100,6 +100,11 @@ jobs:
           if [ -n "$ONLY" ]; then args="$args --only $ONLY"; fi
           if [ -n "$SLOT" ]; then args="$args --slot $SLOT"; fi
           if [ "$NO_PUBLISH" = "true" ]; then args="$args --no-publish"; fi
+          # 定时/常规运行补上 --catch-up：GitHub 的 cron 会偶发漏跑（实测 2026-09-17 的
+          # 19:00 定时就没触发，一个 schedule 事件都没有），plain run 只算"最近到点槽位"，
+          # 漏掉的那天不会被补 → 数据永久缺失。带 catch-up 后下一次运行会把缺失槽位补上。
+          # 显式指定 --slot 的（冒烟/补跑）不加，避免额外触发补跑。
+          if [ -z "$SLOT" ]; then args="$args --catch-up"; fi
           echo "== python monitor.py run $args"
           python monitor.py run $args
 
