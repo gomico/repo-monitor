@@ -8,12 +8,6 @@
     "catch_up_on_start": true,
     "catch_up_max_slots": 1
   },
-  "runtime": {
-    "concurrency": 4,
-    "fetch_timeout_s": 300,
-    "compare_timeout_s": 900,
-    "keep_raw_days": 30
-  },
   "report": {
     "default_days": 7,
     "title": "Ascend 仓库中文字数变化监控",
@@ -297,7 +291,7 @@
     },
     {
       "name": "msmodelslim",
-      "url": "https://atomgit.com/Ascend/msmodelslim/",
+      "url": "https://atomgit.com/Ascend/msmodelslim",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -401,7 +395,7 @@
     },
     {
       "name": "mssanitizer",
-      "url": "http://atomgit.com/Ascend/mssanitizer",
+      "url": "https://atomgit.com/Ascend/mssanitizer",
       "branch": "master",
       "paths_filter": [
         "docs/zh",
@@ -560,18 +554,5 @@
       "paths_mode": "replace",
       "enabled": true
     }
-  ],
-  "publish": {
-    "enabled": true,
-    "method": "git",
-    "target": "D:\\repos\\local\\repo-monitor-reports",
-    "remote": "origin",
-    "branch": "main",
-    "files": [
-      "latest"
-    ],
-    "commit_message": "report: {date} ({generated_at})",
-    "timeout_s": 180,
-    "on_error": "warn"
-  }
+  ]
 }
