@@ -128,6 +128,9 @@ DEFAULT_RUNTIME = {
     "fetch_timeout_s": 300,
     "compare_timeout_s": 900,
     "keep_raw_days": 30,
+    # Keep this at least as large as report.default_days so report detail rows
+    # remain available for every rendered report window.
+    "keep_detail_days": 14,
 }
 DEFAULT_REPORT = {
     "default_days": 7,
@@ -289,7 +292,10 @@ def _default_repos_root() -> Path:
 def default_config(repos_root: Path | None = None) -> dict[str, Any]:
     return {
         "version": 1,
+        "repo_source": "local",
         "repos_root": str((repos_root or _default_repos_root()).resolve()),
+        "mirrors_root": "data/mirrors",
+        "tool_cache_root": "data/toolcache",
         "counter_script": "tools/zh-refresh-wordcount/count_zh_refresh.py",
         "python_exe": sys.executable,
         "schedule": dict(DEFAULT_SCHEDULE),
@@ -347,9 +353,32 @@ def load_config(path: Path | str = CONFIG_PATH, local_path: Path | str | None = 
     config["runtime"] = runtime
     config["report"] = report
     config["publish"] = _normalize_publish_settings(publish)
+    config.setdefault("repo_source", "local")
+    config.setdefault("mirrors_root", "data/mirrors")
+    config.setdefault("tool_cache_root", "data/toolcache")
     config.setdefault("common_paths_filter", [])
     config.setdefault("repos", [])
     return config
+
+
+def _repo_source(config: dict[str, Any]) -> str:
+    value = str(config.get("repo_source", "local") or "local").strip().lower()
+    if value not in {"local", "remote"}:
+        raise MonitorError(f"repo_source 必须是 local 或 remote：{value}")
+    return value
+
+
+def _configured_root(config: dict[str, Any], key: str, default: str) -> Path:
+    value = Path(str(config.get(key, default) or default)).expanduser()
+    return value if value.is_absolute() else ROOT / value
+
+
+def _mirrors_root(config: dict[str, Any]) -> Path:
+    return _configured_root(config, "mirrors_root", "data/mirrors")
+
+
+def _tool_cache_root(config: dict[str, Any]) -> Path:
+    return _configured_root(config, "tool_cache_root", "data/toolcache")
 
 
 def write_json(path: Path, value: dict[str, Any]) -> None:
@@ -423,11 +452,35 @@ def repo_remote_url(repo_path: Path) -> str:
     return (result.stdout or "").strip() if result.returncode == 0 else ""
 
 
-def resolve_remote_branch(repo_path: Path, url: str = "", timeout: float = 60) -> str | None:
-    result = git(repo_path, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], timeout=timeout)
-    if result.returncode == 0 and (result.stdout or "").strip():
-        value = (result.stdout or "").strip()
-        return value["origin/".__len__() :] if value.startswith("origin/") else value
+def resolve_remote_branch(
+    repo_path: Path,
+    url: str = "",
+    timeout: float = 60,
+    *,
+    repo_source: str = "local",
+) -> str | None:
+    if repo_source == "remote":
+        result = git(repo_path, ["symbolic-ref", "--short", "HEAD"], timeout=timeout)
+        if result.returncode == 0 and (result.stdout or "").strip():
+            value = (result.stdout or "").strip()
+            if git(repo_path, ["rev-parse", "--verify", value], timeout=timeout).returncode == 0:
+                return value
+        branches = git(
+            repo_path,
+            ["for-each-ref", "--format=%(refname:strip=2)", "refs/heads"],
+            timeout=timeout,
+        )
+        available = [line.strip() for line in (branches.stdout or "").splitlines() if line.strip()]
+        if len(available) == 1:
+            return available[0]
+        for preferred in ("main", "master"):
+            if preferred in available:
+                return preferred
+    else:
+        result = git(repo_path, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], timeout=timeout)
+        if result.returncode == 0 and (result.stdout or "").strip():
+            value = (result.stdout or "").strip()
+            return value["origin/".__len__() :] if value.startswith("origin/") else value
     if not url:
         url = repo_remote_url(repo_path)
     if not url:
@@ -440,12 +493,60 @@ def resolve_remote_branch(repo_path: Path, url: str = "", timeout: float = 60) -
     return None
 
 
-def _branch_ref(repo_path: Path, branch: str) -> str:
-    for candidate in (f"origin/{branch}", branch):
+def _branch_ref(repo_path: Path, branch: str, *, repo_source: str = "local") -> str:
+    candidates = (branch,) if repo_source == "remote" else (f"origin/{branch}", branch)
+    for candidate in candidates:
         result = git(repo_path, ["rev-parse", "--verify", candidate], timeout=30)
         if result.returncode == 0:
             return candidate
     return branch
+
+
+def _remote_mirror_path(config: dict[str, Any], repo_config: dict[str, Any]) -> Path:
+    return _mirrors_root(config) / f"{str(repo_config.get('name', '')).strip()}.git"
+
+
+def _remote_command_error(result: subprocess.CompletedProcess[str]) -> str:
+    detail = re.sub(r"\s+", " ", (result.stderr or "").strip())
+    return detail[:500] or "stderr 为空"
+
+
+def _ensure_remote_mirror(config: dict[str, Any], repo_config: dict[str, Any]) -> Path:
+    url = str(repo_config.get("url", "")).strip()
+    if not url:
+        raise MonitorError(f"仓库 {repo_config.get('name', '')} 的 url 为空")
+    mirror = _remote_mirror_path(config, repo_config)
+    timeout = float(config.get("runtime", {}).get("fetch_timeout_s", 300))
+    mirror.parent.mkdir(parents=True, exist_ok=True)
+    if not mirror.exists():
+        result = _run(
+            ["git", "clone", "--bare", "--filter=blob:none", "--", url, str(mirror)],
+            timeout=timeout,
+        )
+        if result.returncode != 0:
+            raise MonitorError(
+                f"镜像 clone 失败：url={url} exit_code={result.returncode} "
+                f"stderr={_remote_command_error(result)}"
+            )
+    else:
+        result = _run(
+            [
+                "git",
+                "-C",
+                str(mirror),
+                "fetch",
+                "--prune",
+                "origin",
+                "+refs/heads/*:refs/heads/*",
+            ],
+            timeout=timeout,
+        )
+        if result.returncode != 0:
+            raise MonitorError(
+                f"镜像 fetch 失败：url={url} exit_code={result.returncode} "
+                f"stderr={_remote_command_error(result)}"
+            )
+    return mirror
 
 
 def _repo_has_git(path: Path) -> bool:
@@ -462,8 +563,14 @@ def _commit_info(repo_path: Path, ref: str) -> tuple[str | None, str | None]:
     return parts[1], parts[2]
 
 
-def _tip(repo_path: Path, branch: str, *, before: dt.datetime | None = None) -> str | None:
-    ref = _branch_ref(repo_path, branch)
+def _tip(
+    repo_path: Path,
+    branch: str,
+    *,
+    before: dt.datetime | None = None,
+    repo_source: str = "local",
+) -> str | None:
+    ref = _branch_ref(repo_path, branch, repo_source=repo_source)
     args = ["log", "-1", "--format=%H"]
     if before is None:
         args = ["rev-parse"]
@@ -615,9 +722,15 @@ def run_counter(
     tip: str,
     paths: Sequence[str],
     date: str,
+    *,
+    repo_url: str = "",
+    repo_source: str = "local",
 ) -> CounterOutcome:
-    """Run the counter with a repository-local scratch CWD and always remove it."""
-    scratch = Path(tempfile.mkdtemp(prefix=f".zh_monitor_scratch_{os.getpid()}_{repo_name}_", dir=str(repo_path)))
+    """Run the counter with a temporary CWD and always remove it."""
+    scratch_kwargs = {"prefix": f".zh_monitor_scratch_{os.getpid()}_{repo_name}_"}
+    if repo_source == "local":
+        scratch_kwargs["dir"] = str(repo_path)
+    scratch = Path(tempfile.mkdtemp(**scratch_kwargs))
     log_path = _log_path(date, repo_name)
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
@@ -629,6 +742,8 @@ def run_counter(
         "--target-compare-ref",
         tip,
     ]
+    if repo_source == "remote":
+        args.extend(["--git-url", repo_url, "--config-root", str(_tool_cache_root(config))])
     try:
         with log_path.open("w", encoding="utf-8", newline="\n") as log_handle:
             try:
@@ -778,31 +893,48 @@ def collect_repository(
         paths=paths,
     )
     record.duration_s = 0.0
-    repo_root = Path(str(config.get("repos_root", ""))).expanduser()
-    if not repo_root.is_absolute():
-        repo_root = ROOT / repo_root
-    repo_path = repo_root / name
+    repo_source = _repo_source(config)
+    repo_url = str(repo_config.get("url", ""))
     try:
-        if not _repo_has_git(repo_path):
-            raise MonitorError("仓库目录不存在")
+        if repo_source == "remote":
+            repo_path = _ensure_remote_mirror(config, repo_config)
+        else:
+            repo_root = Path(str(config.get("repos_root", ""))).expanduser()
+            if not repo_root.is_absolute():
+                repo_root = ROOT / repo_root
+            repo_path = repo_root / name
+            if not _repo_has_git(repo_path):
+                raise MonitorError("仓库目录不存在")
         configured_branch = str(repo_config.get("branch") or config.get("branch_default", "auto"))
         branch = configured_branch
         if configured_branch.lower() == "auto":
-            branch = resolve_remote_branch(repo_path, str(repo_config.get("url", ""))) or ""
+            branch = (
+                resolve_remote_branch(repo_path, repo_url, repo_source=repo_source)
+                if repo_source == "remote"
+                else resolve_remote_branch(repo_path, repo_url)
+            ) or ""
             if not branch:
                 raise MonitorError("远端默认分支解析失败")
         record.branch = branch
         fetch_timeout = float(config.get("runtime", {}).get("fetch_timeout_s", 300))
-        fetch = git(repo_path, ["fetch", "origin", branch, "--no-tags"], timeout=fetch_timeout)
-        if fetch.returncode != 0:
-            raise MonitorError(f"fetch 失败：{command_error(fetch)}")
+        if repo_source == "local":
+            fetch = git(repo_path, ["fetch", "origin", branch, "--no-tags"], timeout=fetch_timeout)
+            if fetch.returncode != 0:
+                raise MonitorError(f"fetch 失败：{command_error(fetch)}")
         clamp_tip = (
             effective_slot is not None
             and mode != "rolling"
             and bool(schedule.get("clamp_tip_to_window_end", True))
             and now - window_end > dt.timedelta(minutes=TIP_CLAMP_GRACE_MINUTES)
         )
-        tip = _tip(repo_path, branch, before=window_end) if clamp_tip else _tip(repo_path, branch)
+        if repo_source == "remote":
+            tip = (
+                _tip(repo_path, branch, before=window_end, repo_source=repo_source)
+                if clamp_tip
+                else _tip(repo_path, branch, repo_source=repo_source)
+            )
+        else:
+            tip = _tip(repo_path, branch, before=window_end) if clamp_tip else _tip(repo_path, branch)
         record.tip_commit = tip
         commit_time, subject = _commit_info(repo_path, tip) if tip else (None, None)
         if not tip:
@@ -843,7 +975,11 @@ def collect_repository(
             record.duration_s = round(time.monotonic() - started, 3)
             return _finish_no_change(record, tip, commit_time, subject)
 
-        ref = _branch_ref(repo_path, branch)
+        ref = (
+            _branch_ref(repo_path, branch, repo_source=repo_source)
+            if repo_source == "remote"
+            else _branch_ref(repo_path, branch)
+        )
         base: str | None = None
         if mode == "since_last_run" and previous_ok_tip:
             base = previous_ok_tip
@@ -859,7 +995,20 @@ def collect_repository(
         base_commit_time, base_commit_subject = _commit_info(repo_path, base)
         record.base_commit_time = base_commit_time
         record.base_commit_subject = base_commit_subject
-        outcome = run_counter(config, repo_path, name, base, tip, paths, date)
+        if repo_source == "remote":
+            outcome = run_counter(
+                config,
+                repo_path,
+                name,
+                base,
+                tip,
+                paths,
+                date,
+                repo_url=repo_url,
+                repo_source=repo_source,
+            )
+        else:
+            outcome = run_counter(config, repo_path, name, base, tip, paths, date)
         if outcome.no_change:
             record.duration_s = round(time.monotonic() - started, 3)
             return _finish_no_change(record, tip, commit_time, subject)
@@ -1222,6 +1371,84 @@ def _monitor_log_line(message: str, date: str | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(message + "\n")
+
+
+def prune_detail_rows(
+    keep_days: int,
+    *,
+    dry_run: bool = False,
+    db_path: Path | str | None = None,
+) -> int:
+    """Prune old detail rows without touching aggregate or run history."""
+    try:
+        keep_days = int(keep_days)
+    except (TypeError, ValueError) as exc:
+        raise MonitorError(f"keep_detail_days 必须是整数：{keep_days}") from exc
+
+    conn = connect_db(db_path or _db_path())
+    latest_date: str | None = None
+    try:
+        latest_row = conn.execute("SELECT MAX(date) AS latest_date FROM repo_daily").fetchone()
+        if latest_row and latest_row["latest_date"]:
+            latest_date = str(latest_row["latest_date"])
+
+        if keep_days <= 0:
+            _monitor_log_line(f"prune: 已关闭（保留 {keep_days} 天），未删除明细", latest_date)
+            return 0
+        if latest_date is None:
+            _monitor_log_line(f"prune: 无聚合日期，未删除明细（保留 {keep_days} 天）")
+            return 0
+
+        try:
+            cutoff = dt.date.fromisoformat(latest_date) - dt.timedelta(days=keep_days)
+        except ValueError as exc:
+            raise MonitorError(f"状态库中的最新 date 无效：{latest_date}") from exc
+        cutoff_text = cutoff.isoformat()
+        old = conn.execute(
+            """
+            SELECT COUNT(*) AS row_count, MIN(date) AS first_date, MAX(date) AS last_date
+            FROM repo_daily_files
+            WHERE date < ?
+            """,
+            (cutoff_text,),
+        ).fetchone()
+        candidate_count = int(old["row_count"] or 0)
+        candidate_range = (
+            f"{old['first_date']}..{old['last_date']}"
+            if old["first_date"] and old["last_date"]
+            else "无"
+        )
+        if dry_run:
+            _monitor_log_line(
+                f"prune: dry-run 将删除 {candidate_count} 行明细（日期 {candidate_range}，保留 {keep_days} 天）",
+                latest_date,
+            )
+            return candidate_count
+
+        if candidate_count:
+            cursor = conn.execute("DELETE FROM repo_daily_files WHERE date < ?", (cutoff_text,))
+            deleted = int(cursor.rowcount if cursor.rowcount >= 0 else candidate_count)
+            conn.commit()
+            conn.execute("VACUUM")
+            conn.commit()
+        else:
+            deleted = 0
+
+        remaining = conn.execute(
+            "SELECT MIN(date) AS first_date, MAX(date) AS last_date FROM repo_daily_files"
+        ).fetchone()
+        remaining_range = (
+            f"{remaining['first_date']}..{remaining['last_date']}"
+            if remaining["first_date"] and remaining["last_date"]
+            else "无"
+        )
+        _monitor_log_line(
+            f"prune: 删除 {deleted} 行明细（保留 {keep_days} 天，剩余 {remaining_range}）",
+            latest_date,
+        )
+        return deleted
+    finally:
+        conn.close()
 
 
 def _publish_error_detail(value: Any, fallback: str) -> str:
@@ -2489,6 +2716,8 @@ def _config_for_repo(config: dict[str, Any], name: str) -> dict[str, Any]:
 
 
 def _init_config(config: dict[str, Any]) -> Path:
+    if _repo_source(config) == "remote":
+        raise MonitorError("remote 模式不支持 init-config；请直接配置 repos")
     repos_root = Path(str(config.get("repos_root", _default_repos_root()))).expanduser()
     if not repos_root.is_absolute():
         repos_root = ROOT / repos_root
@@ -2521,9 +2750,14 @@ def _init_config(config: dict[str, Any]) -> Path:
 
 
 def _check_config(config: dict[str, Any]) -> int:
-    repos_root = Path(str(config.get("repos_root", ""))).expanduser()
-    if not repos_root.is_absolute():
-        repos_root = ROOT / repos_root
+    repo_source = _repo_source(config)
+    if repo_source == "remote":
+        mirrors_root = _mirrors_root(config)
+        print(f"repo_source={repo_source} mirrors_root={mirrors_root}")
+    else:
+        repos_root = Path(str(config.get("repos_root", ""))).expanduser()
+        if not repos_root.is_absolute():
+            repos_root = ROOT / repos_root
     schedule = config.get("schedule", {}) if isinstance(config.get("schedule"), dict) else {}
     print(
         "schedule.clamp_tip_to_window_end="
@@ -2557,16 +2791,30 @@ def _check_config(config: dict[str, Any]) -> int:
         if not isinstance(item, dict) or not item.get("name") or not item.get("enabled", True):
             continue
         name = str(item["name"])
-        repo_path = repos_root / name
         paths = effective_paths(config, item)
-        if not _repo_has_git(repo_path):
-            problems += 1
-            output_rows.append({"repo": name, "path": "", "branch": "", "status": "error", "reason": "仓库缺失"})
-            print(f"[失败] {name}: 仓库缺失")
-            continue
+        if repo_source == "remote":
+            try:
+                repo_path = _ensure_remote_mirror(config, item)
+            except (MonitorError, OSError, ValueError) as exc:
+                problems += 1
+                reason = str(exc)
+                output_rows.append({"repo": name, "path": "", "branch": "", "status": "error", "reason": reason})
+                print(f"[失败] {name}: {reason}")
+                continue
+        else:
+            repo_path = repos_root / name
+            if not _repo_has_git(repo_path):
+                problems += 1
+                output_rows.append({"repo": name, "path": "", "branch": "", "status": "error", "reason": "仓库缺失"})
+                print(f"[失败] {name}: 仓库缺失")
+                continue
         branch = str(item.get("branch") or config.get("branch_default", "auto"))
         if branch.lower() == "auto":
-            branch = resolve_remote_branch(repo_path, str(item.get("url", ""))) or ""
+            branch = (
+                resolve_remote_branch(repo_path, str(item.get("url", "")), repo_source=repo_source)
+                if repo_source == "remote"
+                else resolve_remote_branch(repo_path, str(item.get("url", "")))
+            ) or ""
             if not branch:
                 problems += 1
                 output_rows.append({"repo": name, "path": "", "branch": "", "status": "error", "reason": "远端默认分支解析失败"})
@@ -2576,7 +2824,11 @@ def _check_config(config: dict[str, Any]) -> int:
             output_rows.append({"repo": name, "path": "(全仓)", "branch": branch, "status": "ok", "reason": ""})
             print(f"[通过] {name}: 分支 {branch}，全仓口径")
             continue
-        ref = _branch_ref(repo_path, branch)
+        ref = (
+            _branch_ref(repo_path, branch, repo_source=repo_source)
+            if repo_source == "remote"
+            else _branch_ref(repo_path, branch)
+        )
         for path in paths:
             result = git(repo_path, ["cat-file", "-e", f"{ref}:{path}"], timeout=60)
             status = "ok" if result.returncode == 0 else "error"
@@ -2620,17 +2872,57 @@ def _parse_paths(value: str | None) -> list[str]:
     return [normalize_path(part) for part in value.split(",") if normalize_path(part)]
 
 
+def _configured_keep_detail_days(config: dict[str, Any]) -> int:
+    runtime = config.get("runtime", {}) if isinstance(config.get("runtime"), dict) else {}
+    value = runtime.get("keep_detail_days", DEFAULT_RUNTIME["keep_detail_days"])
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise MonitorError(f"runtime.keep_detail_days 必须是整数：{value}") from exc
+
+
+def command_prune(config: dict[str, Any], args: argparse.Namespace) -> int:
+    keep_days = args.keep_days if args.keep_days is not None else _configured_keep_detail_days(config)
+    prune_detail_rows(keep_days, dry_run=bool(args.dry_run))
+    return 0
+
+
 def command_collect(config: dict[str, Any], args: argparse.Namespace) -> int:
     repo_config = _config_for_repo(config, args.repo)
-    repo_root = Path(str(config.get("repos_root", ""))).expanduser()
-    if not repo_root.is_absolute():
-        repo_root = ROOT / repo_root
-    repo_path = repo_root / args.repo
-    if not _repo_has_git(repo_path):
-        raise MonitorError("仓库目录不存在")
+    repo_source = _repo_source(config)
+    if repo_source == "remote":
+        repo_path = _ensure_remote_mirror(config, repo_config)
+    else:
+        repo_root = Path(str(config.get("repos_root", ""))).expanduser()
+        if not repo_root.is_absolute():
+            repo_root = ROOT / repo_root
+        repo_path = repo_root / args.repo
+        if not _repo_has_git(repo_path):
+            raise MonitorError("仓库目录不存在")
     raw_paths = getattr(args, "paths", None)
     paths = _parse_paths(raw_paths)
-    outcome = run_counter(config, repo_path, args.repo, args.base, args.target, paths, now_local().date().isoformat())
+    if repo_source == "remote":
+        outcome = run_counter(
+            config,
+            repo_path,
+            args.repo,
+            args.base,
+            args.target,
+            paths,
+            now_local().date().isoformat(),
+            repo_url=str(repo_config.get("url", "")),
+            repo_source=repo_source,
+        )
+    else:
+        outcome = run_counter(
+            config,
+            repo_path,
+            args.repo,
+            args.base,
+            args.target,
+            paths,
+            now_local().date().isoformat(),
+        )
     if not _is_all_paths_argument(raw_paths) and not outcome.no_change and outcome.matched_files == 0:
         print(f"warn: 生效路径 {json.dumps(paths, ensure_ascii=False)} 未匹配任何文件")
     if outcome.no_change:
@@ -2775,6 +3067,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("init-config", help="扫描仓库生成配置")
     sub.add_parser("check-config", help="检查仓库、分支和路径")
     sub.add_parser("status", help="显示 daemon 与最近运行状态")
+    prune = sub.add_parser("prune", help="清理过期的采集明细")
+    prune.add_argument("--keep-days", type=int, help="保留明细的天数；0 或负数关闭清理")
+    prune.add_argument("--dry-run", action="store_true", help="只显示将删除的明细，不修改数据库")
     run = sub.add_parser("run", help="采集并入库")
     run.add_argument("--limit", type=int)
     run.add_argument("--only", action="extend", nargs="+")
@@ -2824,6 +3119,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "status":
         return command_status()
     config = load_config()
+    if args.command == "prune":
+        return command_prune(config, args)
     if args.command == "run":
         if args.catch_up:
             perform_catch_up(config, limit=args.limit, only=args.only or (), no_publish=args.no_publish)
@@ -2842,6 +3139,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             report_date=args.date or (args.slot and parse_slot(args.slot).date().isoformat()),
             no_publish=args.no_publish,
         )
+        if report is not None:
+            prune_detail_rows(_configured_keep_detail_days(config))
         _print_records(records, report)
         return 0
     if args.command == "backfill":

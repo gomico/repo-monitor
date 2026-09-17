@@ -65,9 +65,12 @@ jobs:
       - name: 恢复状态库
         run: |
           mkdir -p data
-          if [ -f site/state/monitor.db ]; then
+          if [ -f site/state/monitor.db.gz ]; then
+            gunzip -c site/state/monitor.db.gz > data/monitor.db
+            echo "已恢复状态库（gz）：$(du -h data/monitor.db | cut -f1)"
+          elif [ -f site/state/monitor.db ]; then
             cp site/state/monitor.db data/monitor.db
-            echo "已恢复状态库：$(du -h data/monitor.db | cut -f1)"
+            echo "已恢复状态库（未压缩）：$(du -h data/monitor.db | cut -f1)"
           else
             echo "首次运行：无历史状态库"
           fi
@@ -100,10 +103,19 @@ jobs:
           echo "== python monitor.py run $args"
           python monitor.py run $args
 
-      - name: 回写状态库与报表
+      - name: 回写状态库（VACUUM + gzip）与报表
         run: |
           mkdir -p site/state
-          cp data/monitor.db site/state/monitor.db
+          python - <<'PY'
+          import sqlite3
+          conn = sqlite3.connect("data/monitor.db")
+          conn.execute("VACUUM")
+          conn.close()
+          print("VACUUM 完成")
+          PY
+          gzip -n -9 -c data/monitor.db > site/state/monitor.db.gz
+          echo "状态库：原始 $(du -h data/monitor.db | cut -f1) → 压缩 $(du -h site/state/monitor.db.gz | cut -f1)"
+          rm -f site/state/monitor.db
           cd site
           git add -A
           if git diff --cached --quiet; then

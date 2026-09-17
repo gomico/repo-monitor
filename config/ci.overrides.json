@@ -9,7 +9,8 @@
     "concurrency": 4,
     "fetch_timeout_s": 300,
     "compare_timeout_s": 900,
-    "keep_raw_days": 7
+    "keep_raw_days": 7,
+    "keep_detail_days": 14
   },
   "publish": {
     "enabled": true,
@@ -17,10 +18,15 @@
     "target": "site",
     "remote": "origin",
     "branch": "gh-pages",
-    "files": ["latest"],
+    "files": [
+      "latest"
+    ],
     "commit_message": "report: {date} ({generated_at})",
     "timeout_s": 180,
     "on_error": "warn",
-    "retry_delays_s": [60, 180]
+    "retry_delays_s": [
+      60,
+      180
+    ]
   }
 }

@@ -3,11 +3,79 @@ import re
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import monitor
 
 
+def _seed_prune_database(path: Path) -> None:
+    conn = monitor.connect_db(path)
+    for date in ("2026-09-02", "2026-09-07", "2026-09-17"):
+        conn.execute("INSERT INTO repo_daily (date, repo, status) VALUES (?, ?, 'ok')", (date, "demo"))
+        conn.execute(
+            """
+            INSERT INTO repo_daily_files
+              (date, repo, path, changed_sentences, added_chars, added_images, deleted_lines, state)
+            VALUES (?, 'demo', 'docs/zh/a.md', 1, 2, 0, 0, '内容变更')
+            """,
+            (date,),
+        )
+    conn.execute("INSERT INTO runs (run_id) VALUES ('seed-run')")
+    conn.commit()
+    conn.close()
+
+
 class DatabaseTests(unittest.TestCase):
+    def test_prune_detail_rows_uses_latest_aggregate_date_and_keeps_aggregates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "monitor.db"
+            _seed_prune_database(database)
+            with patch.object(monitor, "_monitor_log_line"):
+                deleted = monitor.prune_detail_rows(14, db_path=database)
+            self.assertEqual(deleted, 1)
+            conn = monitor.connect_db(database)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM repo_daily_files").fetchone()[0], 2)
+            self.assertEqual(
+                [row[0] for row in conn.execute("SELECT date FROM repo_daily_files ORDER BY date")],
+                ["2026-09-07", "2026-09-17"],
+            )
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM repo_daily").fetchone()[0], 3)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0], 1)
+            conn.close()
+
+    def test_prune_detail_rows_disabled_and_dry_run_do_not_change_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "monitor.db"
+            _seed_prune_database(database)
+            with patch.object(monitor, "_monitor_log_line"):
+                self.assertEqual(monitor.prune_detail_rows(0, db_path=database), 0)
+                self.assertEqual(monitor.prune_detail_rows(14, dry_run=True, db_path=database), 1)
+            conn = monitor.connect_db(database)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM repo_daily_files").fetchone()[0], 3)
+            conn.close()
+
+    def test_prune_detail_rows_handles_empty_detail_table(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "monitor.db"
+            conn = monitor.connect_db(database)
+            conn.execute("INSERT INTO repo_daily (date, repo, status) VALUES ('2026-09-17', 'demo', 'ok')")
+            conn.commit()
+            conn.close()
+            with patch.object(monitor, "_monitor_log_line"):
+                self.assertEqual(monitor.prune_detail_rows(14, db_path=database), 0)
+
+    def test_run_command_prunes_after_report_success(self):
+        config = {"runtime": {"keep_detail_days": 14}}
+        with (
+            patch.object(monitor, "load_config", return_value=config),
+            patch.object(monitor, "run_collection", return_value=([], Path("report.html"))),
+            patch.object(monitor, "publish_report"),
+            patch.object(monitor, "prune_detail_rows") as prune,
+            patch.object(monitor, "_print_records"),
+        ):
+            self.assertEqual(monitor.main(["run", "--no-publish"]), 0)
+        prune.assert_called_once_with(14)
+
     def test_repo_daily_upsert_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory:
             conn = monitor.connect_db(Path(directory) / "monitor.db")

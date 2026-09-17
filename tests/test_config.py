@@ -30,6 +30,7 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(config["repos_root"], "/local")
             self.assertEqual(config["runtime"]["concurrency"], 1)
             self.assertEqual(config["runtime"]["keep_raw_days"], monitor.DEFAULT_RUNTIME["keep_raw_days"])
+            self.assertEqual(config["runtime"]["keep_detail_days"], 14)
             self.assertEqual(config["report"]["title"], "base")
 
     def test_only_shared_file_is_applied(self):

@@ -68,6 +68,124 @@ def _slot_config(repo_root: Path, *, mode: str = "slot") -> dict:
 
 
 class CollectTests(unittest.TestCase):
+    def test_remote_mirror_resolves_bare_branch_tip_and_commit_info(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _work, hashes = _history_repo(
+                root,
+                [
+                    "2026-09-07T18:00:00+08:00",
+                    "2026-09-08T18:00:00+08:00",
+                    "2026-09-09T18:27:00+08:00",
+                ],
+            )
+            config = _slot_config(root / "repos")
+            config.update(
+                {
+                    "repo_source": "remote",
+                    "mirrors_root": str(root / "mirrors"),
+                    "tool_cache_root": str(root / "toolcache"),
+                }
+            )
+            repo_config = {
+                "name": "demo",
+                "url": str(root / "origin.git"),
+                "branch": "main",
+                "paths_filter": [],
+            }
+            mirror = monitor._ensure_remote_mirror(config, repo_config)
+            self.assertEqual(monitor._branch_ref(mirror, "main", repo_source="remote"), "main")
+            self.assertEqual(monitor._tip(mirror, "main", repo_source="remote"), hashes[-1])
+            self.assertEqual(
+                monitor._tip(
+                    mirror,
+                    "main",
+                    before=datetime(2026, 9, 9, 19, tzinfo=TZ8),
+                    repo_source="remote",
+                ),
+                hashes[-1],
+            )
+            self.assertEqual(monitor._commit_info(mirror, hashes[-1]), ("2026-09-09T18:27:00+08:00", "history 2"))
+
+    def test_run_counter_remote_uses_network_route_and_local_keeps_scratch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo_path, hashes = _history_repo(root, ["2026-09-07T18:00:00+08:00", "2026-09-10T18:00:00+08:00"])
+            config = _slot_config(root / "repos")
+            config.update({"tool_cache_root": str(root / "toolcache")})
+            seen: list[tuple[list[str], Path]] = []
+
+            def fake_counter(args, **kwargs):
+                cwd = Path(kwargs["cwd"])
+                seen.append((list(args), cwd))
+                (cwd / "demo_compare_test.csv").write_text(
+                    "docs/zh/history.md,1,2,0,3,modified\nTOTAL,1,2,0,3\n",
+                    encoding="utf-8",
+                )
+                return subprocess.CompletedProcess(args, 0, b"", b"")
+
+            with patch.object(monitor.subprocess, "run", side_effect=fake_counter):
+                remote = monitor.run_counter(
+                    {**config, "repo_source": "remote"},
+                    repo_path,
+                    "demo",
+                    hashes[0],
+                    hashes[1],
+                    [],
+                    "2099-01-01",
+                    repo_url=str(root / "origin.git"),
+                    repo_source="remote",
+                )
+                local = monitor.run_counter(
+                    config,
+                    repo_path,
+                    "demo",
+                    hashes[0],
+                    hashes[1],
+                    [],
+                    "2099-01-02",
+                )
+
+            remote_args, remote_cwd = seen[0]
+            local_args, local_cwd = seen[1]
+            self.assertEqual(remote.totals.added_chars, 2)
+            self.assertIn("--git-url", remote_args)
+            self.assertIn(str(root / "origin.git"), remote_args)
+            self.assertIn("--config-root", remote_args)
+            self.assertIn(str(root / "toolcache"), remote_args)
+            self.assertNotIn("--git-url", local_args)
+            self.assertNotIn("--config-root", local_args)
+            self.assertEqual(remote_cwd.parent, Path(tempfile.gettempdir()))
+            self.assertTrue(str(local_cwd).startswith(str(repo_path) + os.sep))
+            self.assertFalse(remote_cwd.exists())
+            self.assertFalse(local_cwd.exists())
+
+    def test_check_config_remote_uses_mirror_and_prints_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _history_repo(root, ["2026-09-07T18:00:00+08:00"])
+            config = _slot_config(root / "must-not-be-read")
+            config.update(
+                {
+                    "repo_source": "remote",
+                    "mirrors_root": str(root / "mirrors"),
+                    "repos": [
+                        {
+                            "name": "demo",
+                            "url": str(root / "origin.git"),
+                            "branch": "main",
+                            "paths_filter": ["docs/zh"],
+                        }
+                    ],
+                }
+            )
+            output = StringIO()
+            with patch.object(monitor, "ROOT", root), patch.object(sys, "stdout", output):
+                self.assertEqual(monitor._check_config(config), 0)
+            text = output.getvalue()
+            self.assertIn(f"repo_source=remote mirrors_root={root / 'mirrors'}", text)
+            self.assertIn("[通过] demo: main:docs/zh", text)
+
     def test_historical_tip_is_clamped_to_window_end(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -180,11 +298,12 @@ class CollectTests(unittest.TestCase):
                 monitor, "now_local", return_value=datetime(2026, 9, 16, 12, tzinfo=TZ8)
             ), patch.object(monitor, "run_counter", return_value=fake_outcome), patch.object(
                 monitor, "generate_report", return_value=None
-            ), patch("sys.stdout", output):
+            ), patch.object(monitor, "prune_detail_rows") as prune, patch("sys.stdout", output):
                 self.assertEqual(monitor.command_backfill(config, dry_args), 0)
                 self.assertNotIn("purge:", output.getvalue())
                 self.assertEqual(monitor.command_backfill(config, args), 0)
                 self.assertEqual(monitor.command_backfill(config, args), 0)
+                prune.assert_not_called()
             conn = monitor.connect_db(data_dir / "monitor.db")
             try:
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM repo_daily").fetchone()[0], 2)
