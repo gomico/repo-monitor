@@ -1,0 +1,580 @@
+{
+  "version": 1,
+  "repos_root": "D:\\repos\\atomgit\\Ascend",
+  "counter_script": "D:\\repos\\local\\repo-monitor\\tools\\zh-refresh-wordcount\\count_zh_refresh.py",
+  "python_exe": "C:\\Python314\\python.exe",
+  "schedule": {
+    "time": "19:00",
+    "window_hours": 24,
+    "window_mode": "slot",
+    "missed_run_grace_minutes": 180,
+    "catch_up_on_start": true,
+    "catch_up_max_slots": 1
+  },
+  "runtime": {
+    "concurrency": 4,
+    "fetch_timeout_s": 300,
+    "compare_timeout_s": 900,
+    "keep_raw_days": 30
+  },
+  "report": {
+    "default_days": 7,
+    "title": "Ascend 仓库中文字数变化监控",
+    "top_n_changed": 10
+  },
+  "common_paths_filter": [
+    "docs/zh"
+  ],
+  "branch_default": "auto",
+  "repos": [
+    {
+      "name": "AgentSDK",
+      "url": "https://gitcode.com/Ascend/AgentSDK.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "ascend-deployer",
+      "url": "https://atomgit.com/Ascend/ascend-deployer",
+      "branch": "dev",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "docs",
+      "url": "https://atomgit.com/Ascend/docs",
+      "branch": "master",
+      "paths_filter": [
+        "MindStudio/master"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "faiss",
+      "url": "https://atomgit.com/Ascend/faiss",
+      "branch": "main",
+      "paths_filter": [
+        "faiss/npu/docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "fbgemm-ascend",
+      "url": "https://atomgit.com/Ascend/fbgemm-ascend",
+      "branch": "v1.5.0",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "HierarchicalKV-ascend",
+      "url": "https://atomgit.com/Ascend/HierarchicalKV-ascend",
+      "branch": "develop",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "IndexSDK",
+      "url": "https://gitcode.com/Ascend/IndexSDK",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "MegatronAdaptor",
+      "url": "https://gitcode.com/Ascend/MegatronAdaptor.git",
+      "branch": "core_r0.18.0",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "mind-cluster",
+      "url": "https://atomgit.com/Ascend/mind-cluster",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "MindCluster-AscendNPUBurn",
+      "url": "https://atomgit.com/Ascend/MindCluster-AscendNPUBurn",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "MindSpeed",
+      "url": "https://gitcode.com/Ascend/MindSpeed",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md",
+        "docker/OVERVIEW.zh.md",
+        "CONTRIBUTING.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "MindSpeed-Bridge",
+      "url": "https://gitcode.com/Ascend/MindSpeed-Bridge.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md",
+        "docker/OVERVIEW.zh.md",
+        "CONTRIBUTING.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "MindSpeed-LLM",
+      "url": "https://gitcode.com/Ascend/MindSpeed-LLM.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md",
+        "docker/OVERVIEW.zh.md",
+        "examples/mcore/qwen3/README.md",
+        "examples/mcore/deepseek4_flash/README.md",
+        "CONTRIBUTING.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "MindSpeed-MM",
+      "url": "https://gitcode.com/Ascend/MindSpeed-MM",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md",
+        "docker/OVERVIEW.zh.md",
+        "CONTRIBUTING.md",
+        "SECURITYNOTE.md",
+        "examples/qwen3_5/README.md",
+        "examples/qwen3vl/README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "MindSpeed-Ops",
+      "url": "https://gitcode.com/Ascend/MindSpeed-Ops.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md",
+        "docker/OVERVIEW.zh.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msagent",
+      "url": "https://gitcode.com/Ascend/msagent",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msdebug",
+      "url": "https://gitcode.com/Ascend/msdebug.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msinsight",
+      "url": "https://gitcode.com/Ascend/msinsight",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md",
+        "scripts/cpu_binding_tools/README.md",
+        "scripts/flame_graph/README.md",
+        "scripts/ftrace_tools/ReadMe.md",
+        "scripts/memscope_adaptors/prof2memscope/README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msit",
+      "url": "https://gitcode.com/Ascend/msit",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md",
+        "msprechecker/README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "mskl",
+      "url": "https://gitcode.com/Ascend/mskl.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "mskpp",
+      "url": "https://gitcode.com/Ascend/mskpp",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msmemscope",
+      "url": "https://gitcode.com/Ascend/msmemscope",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msmodeling",
+      "url": "https://gitcode.com/Ascend/msmodeling",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msmodelslim",
+      "url": "https://gitcode.com/Ascend/msmodelslim/",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msmonitor",
+      "url": "https://gitcode.com/Ascend/msmonitor.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msopgen",
+      "url": "https://gitcode.com/Ascend/msopgen",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msopprof",
+      "url": "https://gitcode.com/Ascend/msopprof.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msot",
+      "url": "https://gitcode.com/Ascend/msot",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msprobe",
+      "url": "https://gitcode.com/Ascend/msprobe.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msprof",
+      "url": "https://gitcode.com/Ascend/msprof.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md",
+        "misc/function_monitor/README.md",
+        "misc/gil_tracer/README.md",
+        "misc/host_analyzer/README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msprof-analyze",
+      "url": "https://gitcode.com/Ascend/msprof-analyze.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md",
+        "misc/autofuse_performance_comparison/README.md",
+        "misc/inductor_triton_performance_comparison/README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "mspti",
+      "url": "https://gitcode.com/Ascend/mspti",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "mssanitizer",
+      "url": "http://gitcode.com/Ascend/mssanitizer",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "msserviceprofiler",
+      "url": "https://gitcode.com/Ascend/msserviceprofiler.git",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "mstt",
+      "url": "https://gitcode.com/Ascend/mstt",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md",
+        "msfmktransplt/README.md",
+        "profiler/affinity_cpu_bind/README.md",
+        "profiler/tinker/README.md",
+        "profiler/example/mstx_torch_plugin/README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "mstx",
+      "url": "https://gitcode.com/Ascend/mstx",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "MultimodalSDK",
+      "url": "https://gitcode.com/Ascend/MultimodalSDK",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "op-plugin",
+      "url": "https://gitcode.com/Ascend/op-plugin",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "examples/README.md",
+        "examples/cpp_extension_asc/README.md",
+        "examples/cpp_extension_base/README.md",
+        "examples/cpp_extension_full/module/README.md",
+        "examples/cpp_extension_full/torch_lib_impl/README.md",
+        "examples/cpp_extension_pybind/README.md",
+        "examples/cpp_extension_structured/README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "pytorch",
+      "url": "https://atomgit.com/Ascend/pytorch",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "RAGSDK",
+      "url": "https://gitcode.com/Ascend/RAGSDK",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "RecSDK",
+      "url": "https://gitcode.com/Ascend/RecSDK",
+      "branch": "develop",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "release-management",
+      "url": "https://gitcode.com/Ascend/release-management.git",
+      "branch": "master",
+      "paths_filter": [
+        "MindStudio"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "text-embeddings-inference",
+      "url": "https://atomgit.com/Ascend/text-embeddings-inference",
+      "branch": "main",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "torchair",
+      "url": "https://gitcode.com/Ascend/torchair",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "TransformerEngineNPU",
+      "url": "https://gitcode.com/Ascend/TransformerEngineNPU.git",
+      "branch": "main",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    },
+    {
+      "name": "VisionSDK",
+      "url": "https://gitcode.com/Ascend/VisionSDK",
+      "branch": "master",
+      "paths_filter": [
+        "docs/zh",
+        "README.md"
+      ],
+      "paths_mode": "replace",
+      "enabled": true
+    }
+  ],
+  "publish": {
+    "enabled": true,
+    "method": "git",
+    "target": "D:\\repos\\local\\repo-monitor-reports",
+    "remote": "origin",
+    "branch": "main",
+    "files": [
+      "latest"
+    ],
+    "commit_message": "report: {date} ({generated_at})",
+    "timeout_s": 180,
+    "on_error": "warn"
+  }
+}

@@ -1,0 +1,157 @@
+name: nightly-report
+
+# 定时统计 46 个 Ascend 仓的中文字数变化 → 生成单文件 HTML → 发布到 gh-pages（Pages 从这里发布）
+# 11:00 UTC = 19:00 Asia/Shanghai；GitHub cron 常延迟 5-30 分钟，monitor 的 tip 夹取会保证
+# 迟到的运行仍落在正确的槽位窗口内（口径不受影响，只有上线时刻会漂）。
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+    inputs:
+      only:
+        description: '只跑指定仓库（空格分隔；留空 = 全部 46 仓）'
+        required: false
+        default: 'msmodelslim'
+      slot:
+        description: '槽位（ISO8601，如 2026-09-09T19:00:00+08:00；留空 = 最近一个到点槽位）'
+        required: false
+        default: ''
+      no_publish:
+        description: '跳过发布（冒烟验证用）'
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: nightly-report
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 拉取报表分支（gh-pages）
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: site
+
+      - name: 准备 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 缓存远端镜像与统计工具缓存
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/mirrors
+            data/toolcache
+          key: mirrors-${{ github.run_id }}
+          restore-keys: |
+            mirrors-
+
+      - name: 恢复状态库
+        run: |
+          mkdir -p data
+          if [ -f site/state/monitor.db ]; then
+            cp site/state/monitor.db data/monitor.db
+            echo "已恢复状态库：$(du -h data/monitor.db | cut -f1)"
+          else
+            echo "首次运行：无历史状态库"
+          fi
+
+      - name: 应用 CI 配置覆盖并自检
+        run: |
+          cp config/ci.overrides.json monitor.config.local.linux.json
+          python -V
+          python - <<'PY'
+          import json, pathlib
+          base = json.loads(pathlib.Path("monitor.config.json").read_text(encoding="utf-8"))
+          over = json.loads(pathlib.Path("config/ci.overrides.json").read_text(encoding="utf-8"))
+          print(f"仓库数={len(base['repos'])} repo_source={over['repo_source']}")
+          print(f"发布目标={over['publish']['target']} 分支={over['publish']['branch']}")
+          PY
+          git -C site remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git -C site config user.name "repo-monitor bot"
+          git -C site config user.email "actions@users.noreply.github.com"
+
+      - name: 运行采集 + 生成报表（+ 发布）
+        env:
+          ONLY: ${{ inputs.only }}
+          SLOT: ${{ inputs.slot }}
+          NO_PUBLISH: ${{ inputs.no_publish }}
+        run: |
+          args=""
+          if [ -n "$ONLY" ]; then args="$args --only $ONLY"; fi
+          if [ -n "$SLOT" ]; then args="$args --slot $SLOT"; fi
+          if [ "$NO_PUBLISH" = "true" ]; then args="$args --no-publish"; fi
+          echo "== python monitor.py run $args"
+          python monitor.py run $args
+
+      - name: 回写状态库与报表
+        run: |
+          mkdir -p site/state
+          cp data/monitor.db site/state/monitor.db
+          cd site
+          git add -A
+          if git diff --cached --quiet; then
+            echo "无变化，跳过提交"
+          else
+            git commit -m "state: $(TZ=Asia/Shanghai date +%F_%H%M)"
+            git push
+          fi
+
+      - name: 汇总当日数据
+        if: always()
+        run: |
+          python - <<'PY' || true
+          import sqlite3, pathlib
+          db = pathlib.Path("data/monitor.db")
+          if not db.is_file():
+              raise SystemExit("没有状态库")
+          conn = sqlite3.connect(db)
+          row = conn.execute("SELECT date, COUNT(*), COALESCE(SUM(word_delta),0) FROM repo_daily GROUP BY date ORDER BY date DESC LIMIT 1").fetchone()
+          if row:
+              print(f"最新槽位 {row[0]}：{row[1]} 仓 / {row[2]} 字")
+          print(f"库内天数：{conn.execute('SELECT COUNT(DISTINCT date) FROM repo_daily').fetchone()[0]}")
+          PY
+
+      - name: Discord 通知（配置 secrets.DISCORD_WEBHOOK 后才发）
+        if: always()
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "未配置 DISCORD_WEBHOOK，跳过通知"
+            exit 0
+          fi
+          STATUS_LINE=$(python - <<'PY' || true
+          import sqlite3, pathlib
+          db = pathlib.Path("data/monitor.db")
+          if not db.is_file():
+              print("（无状态库）"); raise SystemExit
+          conn = sqlite3.connect(db)
+          row = conn.execute("SELECT date, COUNT(*), COALESCE(SUM(word_delta),0) FROM repo_daily GROUP BY date ORDER BY date DESC LIMIT 1").fetchone()
+          print(f"最新槽位 {row[0]}：{row[1]} 仓 / {row[2]} 字" if row else "（库为空）")
+          PY
+          )
+          MSG="**repo-monitor $JOB_STATUS**（$(TZ=Asia/Shanghai date '+%F %H:%M')）
+          - $STATUS_LINE
+          - 报表: https://${{ github.repository_owner }}.github.io/${GITHUB_REPOSITORY#*/}/latest.html
+          - 运行: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -sS -X POST -H 'Content-Type: application/json' \
+            -d "$(python -c 'import json,sys;print(json.dumps({"content": sys.argv[1]}))' "$MSG")" \
+            "$WEBHOOK" && echo "已发送 Discord 通知"
