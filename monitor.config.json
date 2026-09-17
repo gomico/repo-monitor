@@ -1,8 +1,5 @@
 {
   "version": 1,
-  "repos_root": "D:\\repos\\atomgit\\Ascend",
-  "counter_script": "D:\\repos\\local\\repo-monitor\\tools\\zh-refresh-wordcount\\count_zh_refresh.py",
-  "python_exe": "C:\\Python314\\python.exe",
   "schedule": {
     "time": "19:00",
     "window_hours": 24,
