@@ -23,10 +23,9 @@
       "url": "https://atomgit.com/Ascend/AgentSDK",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -34,10 +33,9 @@
       "url": "https://atomgit.com/Ascend/ascend-deployer",
       "branch": "dev",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -66,10 +64,9 @@
       "url": "https://atomgit.com/Ascend/fbgemm-ascend",
       "branch": "v1.5.0",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -77,10 +74,9 @@
       "url": "https://atomgit.com/Ascend/HierarchicalKV-ascend",
       "branch": "develop",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -88,10 +84,9 @@
       "url": "https://atomgit.com/Ascend/IndexSDK",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -99,10 +94,9 @@
       "url": "https://atomgit.com/Ascend/MegatronAdaptor",
       "branch": "core_r0.18.0",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -110,10 +104,9 @@
       "url": "https://atomgit.com/Ascend/mind-cluster",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -121,10 +114,9 @@
       "url": "https://atomgit.com/Ascend/MindCluster-AscendNPUBurn",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -132,12 +124,11 @@
       "url": "https://atomgit.com/Ascend/MindSpeed",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md",
         "docker/OVERVIEW.zh.md",
         "CONTRIBUTING.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -145,12 +136,11 @@
       "url": "https://atomgit.com/Ascend/MindSpeed-Bridge",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md",
         "docker/OVERVIEW.zh.md",
         "CONTRIBUTING.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -158,14 +148,13 @@
       "url": "https://atomgit.com/Ascend/MindSpeed-LLM",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md",
         "docker/OVERVIEW.zh.md",
         "examples/mcore/qwen3/README.md",
         "examples/mcore/deepseek4_flash/README.md",
         "CONTRIBUTING.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -173,7 +162,6 @@
       "url": "https://atomgit.com/Ascend/MindSpeed-MM",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md",
         "docker/OVERVIEW.zh.md",
         "CONTRIBUTING.md",
@@ -181,7 +169,7 @@
         "examples/qwen3_5/README.md",
         "examples/qwen3vl/README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -189,11 +177,10 @@
       "url": "https://atomgit.com/Ascend/MindSpeed-Ops",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md",
         "docker/OVERVIEW.zh.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -201,10 +188,9 @@
       "url": "https://atomgit.com/Ascend/msagent",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -212,10 +198,9 @@
       "url": "https://atomgit.com/Ascend/msdebug",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -223,14 +208,13 @@
       "url": "https://atomgit.com/Ascend/msinsight",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md",
         "scripts/cpu_binding_tools/README.md",
         "scripts/flame_graph/README.md",
         "scripts/ftrace_tools/ReadMe.md",
         "scripts/memscope_adaptors/prof2memscope/README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -238,11 +222,10 @@
       "url": "https://atomgit.com/Ascend/msit",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md",
         "msprechecker/README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -250,10 +233,9 @@
       "url": "https://atomgit.com/Ascend/mskl",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -261,10 +243,9 @@
       "url": "https://atomgit.com/Ascend/mskpp",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -272,10 +253,9 @@
       "url": "https://atomgit.com/Ascend/msmemscope",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -283,10 +263,9 @@
       "url": "https://atomgit.com/Ascend/msmodeling",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -294,10 +273,9 @@
       "url": "https://atomgit.com/Ascend/msmodelslim",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -305,10 +283,9 @@
       "url": "https://atomgit.com/Ascend/msmonitor",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -316,10 +293,9 @@
       "url": "https://atomgit.com/Ascend/msopgen",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -327,10 +303,9 @@
       "url": "https://atomgit.com/Ascend/msopprof",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -338,10 +313,9 @@
       "url": "https://atomgit.com/Ascend/msot",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -349,10 +323,9 @@
       "url": "https://atomgit.com/Ascend/msprobe",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -360,13 +333,12 @@
       "url": "https://atomgit.com/Ascend/msprof",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md",
         "misc/function_monitor/README.md",
         "misc/gil_tracer/README.md",
         "misc/host_analyzer/README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -374,12 +346,11 @@
       "url": "https://atomgit.com/Ascend/msprof-analyze",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md",
         "misc/autofuse_performance_comparison/README.md",
         "misc/inductor_triton_performance_comparison/README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -387,10 +358,9 @@
       "url": "https://atomgit.com/Ascend/mspti",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -398,10 +368,9 @@
       "url": "https://atomgit.com/Ascend/mssanitizer",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -409,10 +378,9 @@
       "url": "https://atomgit.com/Ascend/msserviceprofiler",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -420,14 +388,13 @@
       "url": "https://atomgit.com/Ascend/mstt",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md",
         "msfmktransplt/README.md",
         "profiler/affinity_cpu_bind/README.md",
         "profiler/tinker/README.md",
         "profiler/example/mstx_torch_plugin/README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -435,10 +402,9 @@
       "url": "https://atomgit.com/Ascend/mstx",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -446,10 +412,9 @@
       "url": "https://atomgit.com/Ascend/MultimodalSDK",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -457,7 +422,6 @@
       "url": "https://atomgit.com/Ascend/op-plugin",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "examples/README.md",
         "examples/cpp_extension_asc/README.md",
         "examples/cpp_extension_base/README.md",
@@ -466,7 +430,7 @@
         "examples/cpp_extension_pybind/README.md",
         "examples/cpp_extension_structured/README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -474,9 +438,8 @@
       "url": "https://atomgit.com/Ascend/pytorch",
       "branch": "master",
       "paths_filter": [
-        "docs/zh"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -484,10 +447,9 @@
       "url": "https://atomgit.com/Ascend/RAGSDK",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -495,10 +457,9 @@
       "url": "https://atomgit.com/Ascend/RecSDK",
       "branch": "develop",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -516,10 +477,9 @@
       "url": "https://atomgit.com/Ascend/text-embeddings-inference",
       "branch": "main",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -527,9 +487,8 @@
       "url": "https://atomgit.com/Ascend/torchair",
       "branch": "master",
       "paths_filter": [
-        "docs/zh"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -537,10 +496,9 @@
       "url": "https://atomgit.com/Ascend/TransformerEngineNPU",
       "branch": "main",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     },
     {
@@ -548,10 +506,9 @@
       "url": "https://atomgit.com/Ascend/VisionSDK",
       "branch": "master",
       "paths_filter": [
-        "docs/zh",
         "README.md"
       ],
-      "paths_mode": "replace",
+      "paths_mode": "union",
       "enabled": true
     }
   ]
