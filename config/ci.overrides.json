@@ -6,7 +6,7 @@
   "mirrors_root": "data/mirrors",
   "tool_cache_root": "data/toolcache",
   "runtime": {
-    "concurrency": 4,
+    "concurrency": 1,
     "fetch_timeout_s": 300,
     "compare_timeout_s": 900,
     "keep_raw_days": 7,

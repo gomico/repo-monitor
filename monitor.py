@@ -36,6 +36,7 @@ ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "monitor.config.json"
 LOCAL_CONFIG_PATH = ROOT / "monitor.config.local.json"
 COUNTER_MARKER = "old ref 和 new ref 指向同一个 commit"
+MIRROR_MARKER = "zh-monitor-mirror.json"
 
 
 class MonitorError(RuntimeError):
@@ -511,16 +512,66 @@ def _remote_command_error(result: subprocess.CompletedProcess[str]) -> str:
     return detail[:500] or "stderr 为空"
 
 
-def _ensure_remote_mirror(config: dict[str, Any], repo_config: dict[str, Any]) -> Path:
-    url = str(repo_config.get("url", "")).strip()
-    if not url:
-        raise MonitorError(f"仓库 {repo_config.get('name', '')} 的 url 为空")
-    mirror = _remote_mirror_path(config, repo_config)
+def _cleanup_remote_mirror_temps(mirrors_root: Path) -> None:
+    if not mirrors_root.is_dir():
+        return
+    for path in mirrors_root.glob(".*tmp*"):
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path, ignore_errors=True)
+
+
+def _mirror_branch(config: dict[str, Any], repo_config: dict[str, Any]) -> str:
+    return str(repo_config.get("branch") or config.get("branch_default", "auto")).strip()
+
+
+def _mirror_invalid_reason(config: dict[str, Any], repo_config: dict[str, Any], mirror: Path) -> str | None:
+    marker = mirror / MIRROR_MARKER
+    if not marker.is_file():
+        return "无标记"
+    try:
+        payload = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return "标记无效"
+    if not isinstance(payload, dict) or payload.get("url") != str(repo_config.get("url", "")).strip():
+        return "标记无效"
+    branch = _mirror_branch(config, repo_config)
+    if branch.lower() == "auto":
+        result = git(mirror, ["for-each-ref", "--format=%(refname)", "refs/heads"], timeout=30)
+        return None if (result.stdout or "").strip() else "无 ref"
+    result = git(mirror, ["rev-parse", "--verify", branch], timeout=30)
+    return None if result.returncode == 0 else "无 ref"
+
+
+def _write_mirror_marker(mirror: Path, url: str) -> None:
+    payload = {"url": url, "written_at": iso_time(now_local())}
+    (mirror / MIRROR_MARKER).write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _remove_remote_mirror(mirror: Path) -> None:
+    if mirror.is_symlink() or not mirror.is_dir():
+        if mirror.exists() or mirror.is_symlink():
+            mirror.unlink()
+        return
+    shutil.rmtree(mirror)
+
+
+def _clone_remote_mirror(
+    config: dict[str, Any],
+    repo_config: dict[str, Any],
+    mirror: Path,
+    url: str,
+) -> None:
     timeout = float(config.get("runtime", {}).get("fetch_timeout_s", 300))
-    mirror.parent.mkdir(parents=True, exist_ok=True)
-    if not mirror.exists():
+    temp_path: Path | None = None
+    try:
+        temp_path = Path(
+            tempfile.mkdtemp(prefix=f".{mirror.name}.tmp.", dir=str(mirror.parent))
+        )
         result = _run(
-            ["git", "clone", "--bare", "--filter=blob:none", "--", url, str(mirror)],
+            ["git", "clone", "--bare", "--filter=blob:none", "--", url, str(temp_path)],
             timeout=timeout,
         )
         if result.returncode != 0:
@@ -528,25 +579,114 @@ def _ensure_remote_mirror(config: dict[str, Any], repo_config: dict[str, Any]) -
                 f"镜像 clone 失败：url={url} exit_code={result.returncode} "
                 f"stderr={_remote_command_error(result)}"
             )
-    else:
-        result = _run(
-            [
-                "git",
-                "-C",
-                str(mirror),
-                "fetch",
-                "--prune",
-                "origin",
-                "+refs/heads/*:refs/heads/*",
-            ],
-            timeout=timeout,
+        _write_mirror_marker(temp_path, url)
+        reason = _mirror_invalid_reason(config, repo_config, temp_path)
+        if reason:
+            raise MonitorError(f"镜像 clone 后无效：{mirror}（{reason}）")
+        os.replace(temp_path, mirror)
+        temp_path = None
+    finally:
+        if temp_path is not None and temp_path.exists():
+            shutil.rmtree(temp_path, ignore_errors=True)
+
+
+def _ensure_remote_mirror(config: dict[str, Any], repo_config: dict[str, Any]) -> Path:
+    url = str(repo_config.get("url", "")).strip()
+    if not url:
+        raise MonitorError(f"仓库 {repo_config.get('name', '')} 的 url 为空")
+    mirror = _remote_mirror_path(config, repo_config)
+    mirrors_root = mirror.parent
+    timeout = float(config.get("runtime", {}).get("fetch_timeout_s", 300))
+    mirrors_root.mkdir(parents=True, exist_ok=True)
+    _cleanup_remote_mirror_temps(mirrors_root)
+
+    reason = _mirror_invalid_reason(config, repo_config, mirror) if mirror.exists() else None
+    if reason:
+        _monitor_log_line(f"mirror: 发现坏镜像 {mirror}（{reason}），重建")
+        _remove_remote_mirror(mirror)
+
+    if not mirror.exists():
+        _clone_remote_mirror(config, repo_config, mirror, url)
+        return mirror
+
+    result = _run(
+        [
+            "git",
+            "-C",
+            str(mirror),
+            "fetch",
+            "--prune",
+            "origin",
+            "+refs/heads/*:refs/heads/*",
+        ],
+        timeout=timeout,
+    )
+    if result.returncode != 0:
+        raise MonitorError(
+            f"镜像 fetch 失败：url={url} exit_code={result.returncode} "
+            f"stderr={_remote_command_error(result)}"
         )
+    reason = _mirror_invalid_reason(config, repo_config, mirror)
+    if reason:
+        _monitor_log_line(f"mirror: 发现坏镜像 {mirror}（{reason}），重建")
+        _remove_remote_mirror(mirror)
+        _clone_remote_mirror(config, repo_config, mirror, url)
+    return mirror
+
+
+def _remote_branch_from_url(
+    config: dict[str, Any],
+    repo_config: dict[str, Any],
+) -> tuple[str | None, str | None]:
+    """Resolve and verify a configured branch without creating a mirror."""
+    url = str(repo_config.get("url", "")).strip()
+    if not url:
+        return None, "url 为空"
+    timeout = float(config.get("runtime", {}).get("fetch_timeout_s", 300))
+    branch = _mirror_branch(config, repo_config)
+    if branch.lower() == "auto":
+        result = _run(["git", "ls-remote", "--symref", url, "HEAD"], timeout=timeout)
         if result.returncode != 0:
-            raise MonitorError(
-                f"镜像 fetch 失败：url={url} exit_code={result.returncode} "
+            return None, (
+                f"默认分支查询失败：url={url} exit_code={result.returncode} "
                 f"stderr={_remote_command_error(result)}"
             )
-    return mirror
+        for line in (result.stdout or "").splitlines():
+            match = re.match(r"ref:\s+refs/heads/([^\s]+)\s+HEAD$", line.strip())
+            if match:
+                branch = match.group(1)
+                break
+        if branch.lower() == "auto":
+            result = _run(["git", "ls-remote", "--heads", url], timeout=timeout)
+            if result.returncode != 0:
+                return None, (
+                    f"分支列表查询失败：url={url} exit_code={result.returncode} "
+                    f"stderr={_remote_command_error(result)}"
+                )
+            branches = []
+            for line in (result.stdout or "").splitlines():
+                fields = line.split()
+                if len(fields) >= 2 and fields[1].startswith("refs/heads/"):
+                    branches.append(fields[1][len("refs/heads/") :])
+            if len(branches) == 1:
+                branch = branches[0]
+            else:
+                branch = next((item for item in ("main", "master") if item in branches), "")
+        if not branch:
+            return None, "远端默认分支解析失败"
+
+    result = _run(["git", "ls-remote", "--heads", url, branch], timeout=timeout)
+    if result.returncode != 0:
+        return None, (
+            f"分支查询失败：url={url} exit_code={result.returncode} "
+            f"stderr={_remote_command_error(result)}"
+        )
+    expected_ref = f"refs/heads/{branch}"
+    exists = any(
+        len(fields := line.split()) >= 2 and fields[1] == expected_ref
+        for line in (result.stdout or "").splitlines()
+    )
+    return (branch, None) if exists else (branch, "分支不存在")
 
 
 def _repo_has_git(path: Path) -> bool:
@@ -2749,7 +2889,7 @@ def _init_config(config: dict[str, Any]) -> Path:
     return target
 
 
-def _check_config(config: dict[str, Any]) -> int:
+def _check_config(config: dict[str, Any], *, deep: bool = False) -> int:
     repo_source = _repo_source(config)
     if repo_source == "remote":
         mirrors_root = _mirrors_root(config)
@@ -2787,11 +2927,48 @@ def _check_config(config: dict[str, Any]) -> int:
         if item["enabled"] and not item["target"]:
             problems += 1
             print("[失败] publish: enabled=true 但 target 为空")
+    remote_results: dict[str, tuple[str | None, str | None]] = {}
+    if repo_source == "remote" and not deep:
+        print("remote 模式跳过路径存在性校验（需镜像），如需深度检查请使用 check-config --deep")
+        remote_items = [
+            item
+            for item in config.get("repos", [])
+            if isinstance(item, dict) and item.get("name") and item.get("enabled", True)
+        ]
+        concurrency = max(1, int(config.get("runtime", {}).get("concurrency", 4)))
+        with ThreadPoolExecutor(max_workers=min(concurrency, len(remote_items) or 1)) as executor:
+            futures = {
+                executor.submit(_remote_branch_from_url, config, item): str(item["name"])
+                for item in remote_items
+            }
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    remote_results[name] = future.result()
+                except Exception as exc:  # one remote check must not abort the rest
+                    remote_results[name] = (None, f"远端分支检查失败：{exc}")
     for item in config.get("repos", []):
         if not isinstance(item, dict) or not item.get("name") or not item.get("enabled", True):
             continue
         name = str(item["name"])
         paths = effective_paths(config, item)
+        if repo_source == "remote" and not deep:
+            branch, branch_reason = remote_results.get(name, (None, "远端分支检查未返回结果"))
+            if branch_reason or not branch:
+                problems += 1
+                reason = branch_reason or "远端分支检查失败"
+                output_rows.append({"repo": name, "path": "", "branch": branch or "", "status": "error", "reason": reason})
+                print(f"[失败] {name}: {reason}")
+                continue
+            if not paths:
+                output_rows.append({"repo": name, "path": "(全仓)", "branch": branch, "status": "ok", "reason": ""})
+                print(f"[通过] {name}: 分支 {branch}，全仓口径")
+            else:
+                reason = "remote 模式跳过路径存在性校验（需镜像）"
+                for path in paths:
+                    output_rows.append({"repo": name, "path": path, "branch": branch, "status": "skipped", "reason": reason})
+                print(f"[跳过] {name}: 分支 {branch}，{reason}")
+            continue
         if repo_source == "remote":
             try:
                 repo_path = _ensure_remote_mirror(config, item)
@@ -3065,7 +3242,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--now", action="store_true", help="daemon 启动后立即采集一次")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("init-config", help="扫描仓库生成配置")
-    sub.add_parser("check-config", help="检查仓库、分支和路径")
+    check = sub.add_parser("check-config", help="检查仓库、分支和路径")
+    check.add_argument("--deep", action="store_true", help="remote 模式建立/使用镜像并校验路径")
     sub.add_parser("status", help="显示 daemon 与最近运行状态")
     prune = sub.add_parser("prune", help="清理过期的采集明细")
     prune.add_argument("--keep-days", type=int, help="保留明细的天数；0 或负数关闭清理")
@@ -3115,7 +3293,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _init_config(load_config())
         return 0
     if args.command == "check-config":
-        return _check_config(load_config())
+        return _check_config(load_config(), deep=args.deep)
     if args.command == "status":
         return command_status()
     config = load_config()
