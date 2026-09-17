@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from io import StringIO
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -68,6 +69,48 @@ def _slot_config(repo_root: Path, *, mode: str = "slot") -> dict:
 
 
 class CollectTests(unittest.TestCase):
+    def test_remote_bad_mirror_rebuilds_and_cleans_stale_temps(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _history_repo(root, ["2026-09-07T18:00:00+08:00"])
+            mirrors = root / "mirrors"
+            config = _slot_config(root / "must-not-be-read")
+            config.update({"repo_source": "remote", "mirrors_root": str(mirrors)})
+            repo_config = {
+                "name": "demo",
+                "url": str(root / "origin.git"),
+                "branch": "main",
+            }
+            stale = mirrors / ".demo.git.tmp.123"
+            stale.mkdir(parents=True)
+            (stale / "partial.pack").write_bytes(b"orphan")
+            bad = mirrors / "demo.git"
+            bad.mkdir(parents=True)
+            with patch.object(monitor, "_monitor_log_line") as log:
+                mirror = monitor._ensure_remote_mirror(config, repo_config)
+            self.assertEqual(mirror, bad)
+            self.assertFalse(stale.exists())
+            self.assertTrue((mirror / monitor.MIRROR_MARKER).is_file())
+            marker = json.loads((mirror / monitor.MIRROR_MARKER).read_text(encoding="utf-8"))
+            self.assertEqual(marker["url"], repo_config["url"])
+            self.assertTrue(marker["written_at"])
+            self.assertTrue(any("无标记" in call.args[0] and "重建" in call.args[0] for call in log.call_args_list))
+            self.assertEqual(monitor._branch_ref(mirror, "main", repo_source="remote"), "main")
+            self.assertEqual(list(mirrors.glob(".*tmp*")), [])
+
+            broken_config = {**repo_config, "name": "broken"}
+            broken = mirrors / "broken.git"
+            _git(root, "init", "--bare", str(broken))
+            (broken / monitor.MIRROR_MARKER).write_text(
+                json.dumps({"url": broken_config["url"], "written_at": "2026-01-01T00:00:00+08:00"}),
+                encoding="utf-8",
+            )
+            with patch.object(monitor, "_monitor_log_line") as broken_log:
+                rebuilt = monitor._ensure_remote_mirror(config, broken_config)
+            self.assertEqual(rebuilt, broken)
+            self.assertEqual(monitor._branch_ref(rebuilt, "main", repo_source="remote"), "main")
+            self.assertTrue(any("无 ref" in call.args[0] and "重建" in call.args[0] for call in broken_log.call_args_list))
+
     def test_remote_mirror_resolves_bare_branch_tip_and_commit_info(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -160,7 +203,7 @@ class CollectTests(unittest.TestCase):
             self.assertFalse(remote_cwd.exists())
             self.assertFalse(local_cwd.exists())
 
-    def test_check_config_remote_uses_mirror_and_prints_source(self):
+    def test_check_config_remote_skips_mirror_by_default_and_deep_checks(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _history_repo(root, ["2026-09-07T18:00:00+08:00"])
@@ -184,7 +227,15 @@ class CollectTests(unittest.TestCase):
                 self.assertEqual(monitor._check_config(config), 0)
             text = output.getvalue()
             self.assertIn(f"repo_source=remote mirrors_root={root / 'mirrors'}", text)
-            self.assertIn("[通过] demo: main:docs/zh", text)
+            self.assertIn("remote 模式跳过路径存在性校验（需镜像）", text)
+            self.assertFalse((root / "mirrors").exists())
+
+            deep_output = StringIO()
+            with patch.object(monitor, "ROOT", root), patch.object(sys, "stdout", deep_output):
+                self.assertEqual(monitor._check_config(config, deep=True), 0)
+            self.assertIn("[通过] demo: main:docs/zh", deep_output.getvalue())
+            self.assertTrue((root / "mirrors" / "demo.git" / monitor.MIRROR_MARKER).exists())
+            self.assertTrue(monitor.build_parser().parse_args(["check-config", "--deep"]).deep)
 
     def test_historical_tip_is_clamped_to_window_end(self):
         with tempfile.TemporaryDirectory() as directory:
