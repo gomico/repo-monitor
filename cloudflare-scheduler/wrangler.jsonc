@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "repo-monitor-nightly-scheduler",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-18",
+  "workers_dev": true,
+  "triggers": {
+    "crons": ["5 11 * * *"]
+  },
+  "secrets": {
+    "required": ["GITHUB_TOKEN", "TRIGGER_SECRET"]
+  }
+}

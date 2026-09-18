@@ -1,31 +1,26 @@
 name: nightly-report
 
-# 定时统计 46 个 Ascend 仓的中文字数变化 → 生成单文件 HTML → 发布到 gh-pages（Pages 从这里发布）
+# 定时统计配置的仓库中文字数变化 → 生成单文件 HTML → 发布到配置的 Pages 分支。
+# 定时触发由 Cloudflare Workers Cron 完成；本 workflow 保留 workflow_dispatch 作为实际执行入口。
 # 迟到的运行仍落在正确的槽位窗口内（口径不受影响，只有上线时刻会漂）。
-# 触发时刻：03:14 UTC = 11:14 Asia/Shanghai（原为 11:00 UTC / 19:00，改为上午便于观察是否触发）。
 
 on:
-  schedule:
-    # 03:14 UTC = 11:14 Asia/Shanghai（避开整点高峰，便于观察是否触发）。
-    # 注意：这里只决定「什么时候跑」，槽位边界是 monitor.config.json 的 schedule.time（19:00），
-    # 所以 11:14 这次算的是「昨天 19:00」那个槽位——与迟到的运行同源，口径不变。
-    # 实测 GitHub cron 会迟到（2026-09-17 的 19:00 那次迟到 4h26m 才补火），tip 夹取保证口径仍正确。
-    - cron: '14 3 * * *'
   workflow_dispatch:
     inputs:
       only:
-        description: '只跑指定仓库（空格分隔；留空 = 全部 46 仓；冒烟时填 msmodelslim）'
+        description: '只跑指定仓库（空格分隔；留空 = 全部启用仓库）'
         required: false
         default: ''
       slot:
-        description: '槽位（ISO8601，如 2026-09-09T19:00:00+08:00；留空 = 最近一个到点槽位）'
+        description: '槽位（ISO8601；留空 = 最近一个到点槽位）'
         required: false
         default: ''
       no_publish:
         description: '跳过发布（冒烟验证用）'
         required: false
         type: boolean
-        default: true
+        # 定时由 Cloudflare 显式传 false；默认也发布，避免普通手动触发误跳过 gh-pages。
+        default: false
 
 concurrency:
   group: nightly-report
@@ -104,10 +99,9 @@ jobs:
           if [ -n "$ONLY" ]; then args="$args --only $ONLY"; fi
           if [ -n "$SLOT" ]; then args="$args --slot $SLOT"; fi
           if [ "$NO_PUBLISH" = "true" ]; then args="$args --no-publish"; fi
-          # 定时/常规运行补上 --catch-up：GitHub 的 cron 会偶发漏跑（实测 2026-09-17 的
-          # 19:00 定时就没触发，一个 schedule 事件都没有），plain run 只算"最近到点槽位"，
-          # 漏掉的那天不会被补 → 数据永久缺失。带 catch-up 后下一次运行会把缺失槽位补上。
           # 显式指定 --slot 的（冒烟/补跑）不加，避免额外触发补跑。
+          # Cloudflare Cron 或普通 dispatch 都补上 --catch-up；如果某次调度漏掉，
+          # 下一次运行会把缺失槽位补上。
           if [ -z "$SLOT" ]; then args="$args --catch-up"; fi
           echo "== python monitor.py run $args"
           python monitor.py run $args
