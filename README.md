@@ -14,7 +14,8 @@
 
 ```yaml
 on:
-  schedule: [{cron: '0 11 * * *'}]   # 11:00 UTC = 19:00 Asia/Shanghai；作业内设 TZ=Asia/Shanghai
+  schedule: [{cron: '0 1 * * *'}]   # 01:00 UTC = 09:00 Asia/Shanghai；作业内设 TZ=Asia/Shanghai
+                                    # 运行时刻 ≠ 槽位边界：槽位边界见 monitor.config.json 的 schedule.time（19:00）
   workflow_dispatch:                  # 可传 only / slot / no_publish
 concurrency: {group: nightly-report, cancel-in-progress: false}
 permissions: {contents: write}

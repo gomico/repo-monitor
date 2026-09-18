@@ -1,12 +1,16 @@
 name: nightly-report
 
 # 定时统计 46 个 Ascend 仓的中文字数变化 → 生成单文件 HTML → 发布到 gh-pages（Pages 从这里发布）
-# 11:00 UTC = 19:00 Asia/Shanghai；GitHub cron 常延迟 5-30 分钟，monitor 的 tip 夹取会保证
 # 迟到的运行仍落在正确的槽位窗口内（口径不受影响，只有上线时刻会漂）。
+# 触发时刻：01:00 UTC = 09:00 Asia/Shanghai（原为 11:00 UTC / 19:00，改为上午便于观察是否触发）。
 
 on:
   schedule:
-    - cron: '0 11 * * *'
+    # 01:00 UTC = 09:00 Asia/Shanghai（上午跑，便于观察是否触发）。
+    # 注意：这里只决定「什么时候跑」，槽位边界是 monitor.config.json 的 schedule.time（19:00），
+    # 所以 09:00 这次算的是「昨天 19:00」那个槽位——与迟到的运行同源，口径不变。
+    # 实测 GitHub cron 会迟到（2026-09-17 的 19:00 那次迟到 4h26m 才补火），tip 夹取保证口径仍正确。
+    - cron: '0 1 * * *'
   workflow_dispatch:
     inputs:
       only:
