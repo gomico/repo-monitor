@@ -295,7 +295,7 @@ class ReportTests(unittest.TestCase):
 
 class HeatTierTests(unittest.TestCase):
     def test_heat_tiers_scale_independently_from_sidebar_groups(self):
-        self.assertEqual(9, len(monitor.REPORT_HEAT_TIERS))
+        self.assertEqual(10, len(monitor.REPORT_HEAT_TIERS))
         self.assertEqual(0, monitor._report_heat_level(0))
         self.assertEqual(0, monitor._report_heat_level(None))
 
@@ -327,17 +327,22 @@ class HeatTierTests(unittest.TestCase):
         self.assertEqual(7, monitor._report_heat_level(10000))
         self.assertEqual("1–199", monitor._report_heat_span(1))
         self.assertEqual("10000–19999", monitor._report_heat_span(7))
-        self.assertEqual("20000–99999", monitor._report_heat_span(8))
-        self.assertEqual("≥100000", monitor._report_heat_span(9))
-        self.assertEqual(8, monitor._report_heat_level(99999))
-        self.assertEqual(9, monitor._report_heat_level(100000))
+        self.assertEqual("20000–49999", monitor._report_heat_span(8))
+        self.assertEqual("50000–99999", monitor._report_heat_span(9))
+        self.assertEqual("≥100000", monitor._report_heat_span(10))
+        self.assertEqual(8, monitor._report_heat_level(49999))
+        self.assertEqual(9, monitor._report_heat_level(50000))
+        self.assertEqual(9, monitor._report_heat_level(99999))
+        self.assertEqual(10, monitor._report_heat_level(100000))
 
         rules = re.findall(
             r"\.cells i\.h(\d+)\{background:#[0-9a-f]{6};border-color:#[0-9a-f]{6}\}",
             monitor._report_heat_css(),
         )
         self.assertEqual([str(level) for level in range(1, len(monitor.REPORT_HEAT_TIERS) + 1)], rules)
-        self.assertIn(".cells i.h9{background:#7c3aed;border-color:#6d28d9}", monitor._report_heat_css())
+        self.assertIn(".cells i.h10{background:#a81d1d;border-color:#8a1414}", monitor._report_heat_css())
+        self.assertIn(".cells i.h8{background:#ea6b1f;border-color:#c4520c}", monitor._report_heat_css())
+        self.assertIn(".cells i.h9{background:#dc2626;border-color:#b91c1c}", monitor._report_heat_css())
 
     def test_report_renders_heat_legend_and_tier_tooltips(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -368,31 +373,53 @@ class HeatTierTests(unittest.TestCase):
             ).read_text(encoding="utf-8")
             styles = "\n".join(re.findall(r"<style>(.*?)</style>", content, re.S))
             self.assertEqual(len(monitor.REPORT_HEAT_TIERS), len(re.findall(r"\.cells i\.h\d+\{", styles)))
-            self.assertIn(".cells i.h8{background:#dc2626;border-color:#b91c1c}", styles)
-            self.assertIn(".cells i.h9{background:#7c3aed;border-color:#6d28d9}", styles)
+            self.assertIn(".cells i.h8{background:#ea6b1f;border-color:#c4520c}", styles)
+            self.assertIn(".cells i.h9{background:#dc2626;border-color:#b91c1c}", styles)
+            self.assertIn(".cells i.h10{background:#a81d1d;border-color:#8a1414}", styles)
             self.assertIn(".cells i.h1{background:#cfe2fc;border-color:#b6d0f7}", styles)
 
-            cells = re.findall(r'<i class="h(\d)" title="([^"]+)"></i>', content)
-            self.assertEqual({"1", "4", "7", "9"}, {level for level, _title in cells})
+            cells = re.findall(r'<i class="h(\d+)" title="([^"]+)"></i>', content)
+            self.assertEqual({"1", "4", "7", "10"}, {level for level, _title in cells})
             titles = {title for _level, title in cells}
-            self.assertIn("2026-09-16 · 250000 字 · 档位 9/9（≥100000）", titles)
-            self.assertIn("2026-09-16 · 12000 字 · 档位 7/9（10000–19999）", titles)
-            self.assertIn("2026-09-16 · 1000 字 · 档位 4/9（1000–2999）", titles)
-            self.assertIn("2026-09-16 · 1 字 · 档位 1/9（1–199）", titles)
+            self.assertIn("2026-09-16 · 250000 字 · 档位 10/10（≥100000）", titles)
+            self.assertIn("2026-09-16 · 12000 字 · 档位 7/10（10000–19999）", titles)
+            self.assertIn("2026-09-16 · 1000 字 · 档位 4/10（1000–2999）", titles)
+            self.assertIn("2026-09-16 · 1 字 · 档位 1/10（1–199）", titles)
             zero_titles = set(re.findall(r'<i title="([^"]+)"></i>', content))
             self.assertIn("2026-09-16 · 0 字 · 无变化", zero_titles)
             self.assertNotIn("档位 0/", content)
 
             items = re.findall(
-                r'<span class="heatkey-item"><span class="cells"><i class="h(\d)"></i></span>',
+                r'<span class="heatkey-item"><span class="cells"><i class="h(\d+)"></i></span>',
                 content,
             )
             self.assertEqual(
                 [str(level) for level in range(1, len(monitor.REPORT_HEAT_TIERS) + 1)], items
             )
-            self.assertIn("<b>趋势格档位</b>（近 7 天变化量 · 字）", content)
+            self.assertIn("<b>趋势格档位</b>（每格 = 当日变化量 · 字）", content)
             self.assertIn("≥100000", content)
             self.assertNotIn("档位 5/4", content)
+
+
+class SidebarGroupPaletteTests(unittest.TestCase):
+    def test_sidebar_groups_use_green_ramp_and_keep_failure_red(self):
+        fills = {name: fill for name, _threshold, fill, _ink, _desc in monitor.REPORT_GROUPS}
+        self.assertEqual(
+            {
+                "大量": "#15803d",
+                "中等": "#22c55e",
+                "少量": "#86efac",
+                "无变化": "#94a3b8",
+                "失败": "#ef4444",
+            },
+            fills,
+        )
+        for name in ("大量", "中等", "少量"):
+            r, g, b = (int(fills[name][i : i + 2], 16) for i in (1, 3, 5))
+            self.assertGreater(g, r, f"{name} 应为绿色系")
+            self.assertGreater(g, b, f"{name} 应为绿色系")
+        self.assertEqual("#94a3b8", fills["无变化"], "0 字保持中性灰")
+        self.assertEqual("#ef4444", fills["失败"], "失败保留红色告警")
 
 
 if __name__ == "__main__":
