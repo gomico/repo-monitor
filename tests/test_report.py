@@ -2,6 +2,7 @@ from collections import Counter
 from pathlib import Path
 import json
 import re
+import sqlite3
 import tempfile
 import unittest
 
@@ -290,6 +291,108 @@ class ReportTests(unittest.TestCase):
             self.assertIn("窗口内的提交只改动了非文档内容，生效路径下与全仓都没有中文字数变化。", content)
             self.assertIn("fetch 失败：网络不可用", content)
             self.assertIn("采集失败，请手动查看", content)
+
+
+class HeatTierTests(unittest.TestCase):
+    def test_heat_tiers_scale_independently_from_sidebar_groups(self):
+        self.assertEqual(9, len(monitor.REPORT_HEAT_TIERS))
+        self.assertEqual(0, monitor._report_heat_level(0))
+        self.assertEqual(0, monitor._report_heat_level(None))
+
+        previous_upper = 0
+        for level, (upper, fill, ink) in enumerate(monitor.REPORT_HEAT_TIERS, start=1):
+            self.assertRegex(fill, r"^#[0-9a-f]{6}$")
+            self.assertRegex(ink, r"^#[0-9a-f]{6}$")
+            self.assertEqual(level, monitor._report_heat_level(previous_upper + 1), f"档位 {level} 下界")
+            if upper is None:
+                self.assertEqual(level, monitor._report_heat_level((previous_upper + 1) * 10))
+                continue
+            self.assertGreater(upper, previous_upper)
+            self.assertEqual(level, monitor._report_heat_level(upper - 1), f"档位 {level} 上界")
+            self.assertEqual(level + 1, monitor._report_heat_level(upper), f"档位 {level + 1} 下界")
+            previous_upper = upper
+
+        # 同一个变化量：左侧栏仍是 5 组改动档位，趋势格子是 8 档配色。
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        self.addCleanup(conn.close)
+
+        def bucket(word: int) -> str:
+            return monitor._report_bucket(conn.execute("SELECT 'ok' AS status, ? AS word_delta", (word,)).fetchone())
+
+        self.assertEqual(5, len(monitor.REPORT_GROUPS))
+        self.assertEqual("中等", bucket(5000))
+        self.assertEqual("大量", bucket(10000))
+        self.assertEqual(6, monitor._report_heat_level(5000))
+        self.assertEqual(7, monitor._report_heat_level(10000))
+        self.assertEqual("1–199", monitor._report_heat_span(1))
+        self.assertEqual("10000–19999", monitor._report_heat_span(7))
+        self.assertEqual("20000–99999", monitor._report_heat_span(8))
+        self.assertEqual("≥100000", monitor._report_heat_span(9))
+        self.assertEqual(8, monitor._report_heat_level(99999))
+        self.assertEqual(9, monitor._report_heat_level(100000))
+
+        rules = re.findall(
+            r"\.cells i\.h(\d+)\{background:#[0-9a-f]{6};border-color:#[0-9a-f]{6}\}",
+            monitor._report_heat_css(),
+        )
+        self.assertEqual([str(level) for level in range(1, len(monitor.REPORT_HEAT_TIERS) + 1)], rules)
+        self.assertIn(".cells i.h9{background:#7c3aed;border-color:#6d28d9}", monitor._report_heat_css())
+
+    def test_report_renders_heat_legend_and_tier_tooltips(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "monitor.db"
+            output = root / "report.html"
+            conn = monitor.connect_db(database)
+            _seed_003_fixture(conn)
+            monitor.upsert_repo_daily(
+                conn,
+                monitor.DailyRecord(
+                    date="2026-09-16", repo="huge", repo_url="https://example.invalid/huge",
+                    branch="main", slot_end="2026-09-16T19:00:00+08:00",
+                    window_start="2026-09-16T18:00:00+08:00",
+                    window_end="2026-09-16T19:00:00+08:00",
+                    effective_paths=[], status="ok", word_delta=250000,
+                    text_only_delta=250000, image_delta=0, sentence_delta=1,
+                    deleted_lines=0, matched_files=1, whole_word_delta=250000,
+                    whole_matched_files=1,
+                    files=[monitor.FileChange("docs/zh/huge.md", None, 1, 250000, 0, 0, "内容变更")],
+                ),
+            )
+            conn.commit()
+            conn.close()
+
+            content = monitor.generate_report(
+                _report_config(), db_path=database, days=1, out_path=output, update_latest=False
+            ).read_text(encoding="utf-8")
+            styles = "\n".join(re.findall(r"<style>(.*?)</style>", content, re.S))
+            self.assertEqual(len(monitor.REPORT_HEAT_TIERS), len(re.findall(r"\.cells i\.h\d+\{", styles)))
+            self.assertIn(".cells i.h8{background:#dc2626;border-color:#b91c1c}", styles)
+            self.assertIn(".cells i.h9{background:#7c3aed;border-color:#6d28d9}", styles)
+            self.assertIn(".cells i.h1{background:#cfe2fc;border-color:#b6d0f7}", styles)
+
+            cells = re.findall(r'<i class="h(\d)" title="([^"]+)"></i>', content)
+            self.assertEqual({"1", "4", "7", "9"}, {level for level, _title in cells})
+            titles = {title for _level, title in cells}
+            self.assertIn("2026-09-16 · 250000 字 · 档位 9/9（≥100000）", titles)
+            self.assertIn("2026-09-16 · 12000 字 · 档位 7/9（10000–19999）", titles)
+            self.assertIn("2026-09-16 · 1000 字 · 档位 4/9（1000–2999）", titles)
+            self.assertIn("2026-09-16 · 1 字 · 档位 1/9（1–199）", titles)
+            zero_titles = set(re.findall(r'<i title="([^"]+)"></i>', content))
+            self.assertIn("2026-09-16 · 0 字 · 无变化", zero_titles)
+            self.assertNotIn("档位 0/", content)
+
+            items = re.findall(
+                r'<span class="heatkey-item"><span class="cells"><i class="h(\d)"></i></span>',
+                content,
+            )
+            self.assertEqual(
+                [str(level) for level in range(1, len(monitor.REPORT_HEAT_TIERS) + 1)], items
+            )
+            self.assertIn("<b>趋势格档位</b>（近 7 天变化量 · 字）", content)
+            self.assertIn("≥100000", content)
+            self.assertNotIn("档位 5/4", content)
 
 
 if __name__ == "__main__":

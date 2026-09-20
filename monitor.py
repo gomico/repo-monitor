@@ -2208,10 +2208,10 @@ a.name:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-r
 .num.big{font-weight:600}
 .cells{display:flex;gap:2px}
 .cells i{width:11px;height:14px;border-radius:2px;background:#eef1f4;border:1px solid #dfe4ea}
-.cells i.h1{background:#bfdbfe;border-color:#a5c9fa}
-.cells i.h2{background:#60a5fa;border-color:#3b82f6}
-.cells i.h3{background:#2563eb;border-color:#1d4ed8}
-.cells i.h4{background:#f97316;border-color:#ea580c}
+/* .cells i.hN 的配色由 REPORT_HEAT_TIERS 生成，见 _report_heat_css() */
+.heatkey{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:7px}
+.heatkey-item{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.heatkey .cells{flex:0 0 auto}
 .state{font-size:11.5px;display:flex;align-items:center;gap:5px;color:var(--muted);white-space:nowrap}
 .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
 .dot.ok{background:var(--ok)} .dot.none{background:var(--none)} .dot.err{background:var(--error)}
@@ -2374,6 +2374,37 @@ REPORT_STATUS = {
     "error": ("失败", "err"),
 }
 
+# 趋势格子（每仓近 7 天热力）用独立配色，档位数量和 REPORT_GROUPS 的改动档位分组互不影响。
+# 每项为 (上界, 填充色, 描边色)：value < 上界 即落入该档，上界为 None 表示无上限。
+REPORT_HEAT_TIERS: tuple[tuple[int | None, str, str], ...] = (
+    (200, "#cfe2fc", "#b6d0f7"),
+    (500, "#a9cdfa", "#8ab6f2"),
+    (1000, "#7fb4f5", "#5c9aec"),
+    (3000, "#60a5fa", "#3b82f6"),
+    (5000, "#3b82f6", "#2563eb"),
+    (10000, "#2563eb", "#1d4ed8"),
+    (20000, "#f59e0b", "#d97706"),
+    (100000, "#dc2626", "#b91c1c"),
+    (None, "#7c3aed", "#6d28d9"),
+)
+
+
+def _report_heat_span(level: int) -> str:
+    """Return the 字数区间 of a 1-based heat level, e.g. 200–499 或 ≥20000。"""
+    if level < 1:
+        return "0"
+    lower = 1 if level == 1 else int(REPORT_HEAT_TIERS[level - 2][0] or 0)
+    upper = REPORT_HEAT_TIERS[level - 1][0]
+    return f"≥{lower}" if upper is None else f"{lower}–{upper - 1}"
+
+
+def _report_heat_css() -> str:
+    """Expand REPORT_HEAT_TIERS into `.cells i.hN` rules so 配色与判档无法走样。"""
+    return "".join(
+        f".cells i.h{level}{{background:{fill};border-color:{ink}}}\n"
+        for level, (_upper, fill, ink) in enumerate(REPORT_HEAT_TIERS, start=1)
+    )
+
 
 def _report_bucket(row: sqlite3.Row) -> str:
     status = str(row["status"] or "error")
@@ -2390,16 +2421,14 @@ def _report_bucket(row: sqlite3.Row) -> str:
 
 
 def _report_heat_level(value: int | None) -> int:
+    """0 表示无变化或待累积；否则返回 1..len(REPORT_HEAT_TIERS) 的热力档位。"""
     value = int(value or 0)
     if value <= 0:
         return 0
-    if value < 1000:
-        return 1
-    if value < 5000:
-        return 2
-    if value < 10000:
-        return 3
-    return 4
+    for level, (upper, _fill, _ink) in enumerate(REPORT_HEAT_TIERS, start=1):
+        if upper is None or value < upper:
+            return level
+    return len(REPORT_HEAT_TIERS)
 
 
 def _report_state_label(value: str | None) -> str:
@@ -2500,6 +2529,8 @@ def _render_day(
     display_days: list[str | None] = [None] * max(0, 7 - len(recent_days)) + list(recent_days[-7:])
     display_days = display_days[-7:]
 
+    heat_max = len(REPORT_HEAT_TIERS)
+
     def heat_cells(repo: str) -> str:
         cells: list[str] = []
         for slot in display_days:
@@ -2509,7 +2540,8 @@ def _render_day(
                 continue
             level = _report_heat_level(value)
             klass = f' class="h{level}"' if level else ""
-            title = f"{slot} · {_format_number(value)} 字 · 档位 {level}/4"
+            span = f"档位 {level}/{heat_max}（{_report_heat_span(level)}）" if level else "无变化"
+            title = f"{slot} · {_format_number(value)} 字 · {span}"
             cells.append(f'<i{klass} title="{html.escape(title, quote=True)}"></i>')
         return f'<div class="cells" aria-hidden="true">{"".join(cells)}</div>'
 
@@ -2588,6 +2620,11 @@ def _render_day(
         f'<span class="cnt">{len(by_group[group[0]])}</span></li>'
         for group in REPORT_GROUPS
     )
+    heat_key = "".join(
+        f'<span class="heatkey-item"><span class="cells"><i class="h{level}"></i></span>'
+        f'{html.escape(_report_heat_span(level))}</span>'
+        for level in range(1, heat_max + 1)
+    )
     daily_total = sum(int(item["word_delta"] or 0) for item in rows)
     changed = sum(str(item["status"] or "") == "ok" for item in rows)
     matched_files = sum(int(item["matched_files"] or 0) for item in rows)
@@ -2619,7 +2656,8 @@ def _render_day(
         f'点「展开」看文件级明细</div><span class="spark-baseline" aria-hidden="true"></span></div>'
         f'{"".join(group_sections)}'
         f'<div class="legendbar"><b>口径</b>：当日新增字数 = 窗口内生效路径下的中文净增字数，每张新增图片按 200 字折算；'
-        f'「大量 ≥ 10,000 / 中等 1,000–9,999 / 少量 1–999 / 无变化 0 / 失败」。趋势是<b>变化量</b>，不是仓库中文总量。</div>'
+        f'「大量 ≥ 10,000 / 中等 1,000–9,999 / 少量 1–999 / 无变化 0 / 失败」。趋势是<b>变化量</b>，不是仓库中文总量。'
+        f'<div class="heatkey"><b>趋势格档位</b>（近 7 天变化量 · 字）：{heat_key}</div></div>'
         f'</section>'
     )
     return side_meta, side_day, main_day
@@ -2824,6 +2862,7 @@ def generate_report(
             f'<title>{html.escape(title)} · 报表</title>',
             '<style>',
             REPORT_CSS,
+            _report_heat_css(),
             f'</style></head><body><div class="app">{side}{main}</div>',
             f'<script>{REPORT_JS}</script>',
             '</body></html>',
